@@ -1,0 +1,107 @@
+{
+  "geradoEm": "2026-10-08T13:38:56.337Z",
+  "encontrado": true,
+  "sessoes": 2,
+  "respostas": 636,
+  "acoes": 917,
+  "primeiraResposta": "2026-10-04T16:18:37.518Z",
+  "ultimaResposta": "2026-10-08T13:38:43.963Z",
+  "tokens": {
+    "entrada": 1439,
+    "saida": 1059571,
+    "cacheGravado": 6537335,
+    "cacheLido": 341496945
+  },
+  "modelos": [
+    {
+      "modelo": "claude-opus-5-5",
+      "saida": 1059571
+    }
+  ],
+  "ultimosDias": [
+    {
+      "dia": "2026-09-25",
+      "saida": 0,
+      "lidos": 0,
+      "respostas": 0
+    },
+    {
+      "dia": "2026-09-26",
+      "saida": 0,
+      "lidos": 0,
+      "respostas": 0
+    },
+    {
+      "dia": "2026-09-27",
+      "saida": 0,
+      "lidos": 0,
+      "respostas": 0
+    },
+    {
+      "dia": "2026-09-28",
+      "saida": 0,
+      "lidos": 0,
+      "respostas": 0
+    },
+    {
+      "dia": "2026-09-29",
+      "saida": 0,
+      "lidos": 0,
+      "respostas": 0
+    },
+    {
+      "dia": "2026-09-30",
+      "saida": 0,
+      "lidos": 0,
+      "respostas": 0
+    },
+    {
+      "dia": "2026-10-01",
+      "saida": 0,
+      "lidos": 0,
+      "respostas": 0
+    },
+    {
+      "dia": "2026-10-02",
+      "saida": 0,
+      "lidos": 0,
+      "respostas": 0
+    },
+    {
+      "dia": "2026-10-03",
+      "saida": 0,
+      "lidos": 0,
+      "respostas": 0
+    },
+    {
+      "dia": "2026-10-04",
+      "saida": 491793,
+      "lidos": 123091067,
+      "respostas": 236
+    },
+    {
+      "dia": "2026-10-05",
+      "saida": 180201,
+      "lidos": 53818821,
+      "respostas": 140
+    },
+    {
+      "dia": "2026-10-06",
+      "saida": 93371,
+      "lidos": 29158416,
+      "respostas": 62
+    },
+    {
+      "dia": "2026-10-07",
+      "saida": 109901,
+      "lidos": 58680656,
+      "respostas": 93
+    },
+    {
+      "dia": "2026-10-08",
+      "saida": 184305,
+      "lidos": 83286759,
+      "respostas": 105
+    }
+  ]
+}
