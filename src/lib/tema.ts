@@ -432,8 +432,6 @@ export const componentes = {
   iconeCaixa: { tamanho: 48, raio: 16, glifo: 24 },
   avatar: 44,
   avatarGrande: 76,
-  // aba Monitor: gráficos feitos de pontos
-  monitor: { anel: 132, pontosDoAnel: 48, ponto: 5, pontosPorColuna: 6, linhaLargura: 300, linhaAltura: 54, trilho: 6 },
   brilhoDeFundo: 360,
   cartaoDeCondominio: { largura: 248, altura: 132 },
   conteudo: { larguraMaxima: 560 },

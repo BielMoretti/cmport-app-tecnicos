@@ -3,7 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GlifoAdmin, GlifoCameraAba, GlifoInicio, GlifoPoste, GlifoPulso } from '@/components/arte';
+import { GlifoAdmin, GlifoCameraAba, GlifoInicio, GlifoPoste } from '@/components/arte';
 import { NATIVO, useReduzirMovimento } from '@/components/efeitos';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
@@ -15,7 +15,6 @@ const ABAS: Record<string, { titulo: string; icone: (cor: string) => ReactNode }
   cameras: { titulo: 'Câmeras', icone: cor => <GlifoCameraAba cor={cor} tamanho={componentes.abas.icone} /> },
   postes: { titulo: 'Postes', icone: cor => <GlifoPoste cor={cor} tamanho={componentes.abas.icone} /> },
   admin: { titulo: 'Gestão', icone: cor => <GlifoAdmin cor={cor} tamanho={componentes.abas.icone} /> },
-  monitor: { titulo: 'Monitor', icone: cor => <GlifoPulso cor={cor} tamanho={componentes.abas.icone} /> },
 };
 
 /** Uma aba: a ativa ganha um fundo azul que cresce por trás. */
@@ -82,7 +81,6 @@ export default function AbasLayout() {
       {/* A aba de gestão só existe para quem gerencia câmeras (ver lib/acesso.ts) */}
       <Tabs.Protected guard={admin}>
         <Tabs.Screen name="admin" />
-        <Tabs.Screen name="monitor" />
       </Tabs.Protected>
     </Tabs>
   );
