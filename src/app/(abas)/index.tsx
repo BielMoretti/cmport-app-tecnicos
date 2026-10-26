@@ -118,8 +118,8 @@ export default function InicioScreen() {
             </>
           ) : cameras.length === 0 && !erro ? (
             <Cartao>
-              <Text style={styles.vazioTitulo}>Nenhuma câmera por aqui ainda</Text>
-              <Text style={styles.apoio}>Quando a CM Port liberar um condomínio para você, as câmeras aparecem nesta tela.</Text>
+              <Text style={styles.vazioTitulo}>Nenhuma câmera cadastrada ainda</Text>
+              <Text style={styles.apoio}>Na aba Gestão, escolha o condomínio e crie o poste e as câmeras.</Text>
             </Cartao>
           ) : cameras.length > 0 && (
             <>
@@ -151,20 +151,7 @@ export default function InicioScreen() {
                 </View>
               </Entrada>
 
-              {/* as favoritas de quem está logado (estrela na tela da câmera) */}
-              {camerasFavoritas.length > 0 && (
-                <Bloco titulo="Favoritas">
-                  <View style={styles.favoritas}>
-                    {camerasFavoritas.map(c => (
-                      <View key={c.id} style={styles.favorita}>
-                        <Monitor camera={c} onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })} />
-                      </View>
-                    ))}
-                  </View>
-                </Bloco>
-              )}
-
-              {/* 2. Tem algo pedindo atenção? */}
+              {/* 2. Tem algo pedindo atenção? (para o técnico, antes das favoritas) */}
               {alertas.length > 0 && (
                 <Bloco titulo="Precisa de atenção" acao={alertas.length > MAX_ALERTAS ? `Ver ${alertas.length}` : undefined} aoTocar={() => router.push('/postes')}>
                   {alertas.slice(0, MAX_ALERTAS).map((a, i) => (
@@ -183,8 +170,21 @@ export default function InicioScreen() {
                 </Bloco>
               )}
 
-              {/* 3. Quais são os meus condomínios? */}
-              <Bloco titulo={condominios.length === 1 ? 'Seu condomínio' : 'Seus condomínios'}>
+              {/* as favoritas de quem está logado (estrela na tela da câmera) */}
+              {camerasFavoritas.length > 0 && (
+                <Bloco titulo="Favoritas">
+                  <View style={styles.favoritas}>
+                    {camerasFavoritas.map(c => (
+                      <View key={c.id} style={styles.favorita}>
+                        <Monitor camera={c} onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })} />
+                      </View>
+                    ))}
+                  </View>
+                </Bloco>
+              )}
+
+              {/* 3. Onde há câmeras? */}
+              <Bloco titulo={condominios.length === 1 ? 'Condomínio com câmeras' : 'Condomínios com câmeras'}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrossel} style={styles.carrosselArea}>
                   {condominios.map(c => (
                     <Cartao
