@@ -2,17 +2,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { Fundo, GlifoMais, GlifoPessoas, GlifoPredio, GlifoPulso } from '@/components/arte';
+import { Fundo, GlifoPredio, GlifoPulso } from '@/components/arte';
 import { UsoDaNuvem } from '@/components/central';
-import { Entrada, Toque } from '@/components/efeitos';
+import { Entrada } from '@/components/efeitos';
 import { Campo, Mensagem } from '@/components/formulario';
 import { Bloco, Cartao, Esqueleto, IconeCaixa, Saudacao } from '@/components/ui';
-import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { podeGerenciarUsuarios } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { buscarUsoDaNuvem, type UsoDaNuvem as Uso } from '@/lib/nuvem';
-import { aceso, componentes, corpo, espaco, fontes, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, espaco, fontes, type Paleta } from '@/lib/tema';
 import type { Camera, Condominio, Poste } from '@/lib/types';
 
 interface Linha extends Condominio {
@@ -24,12 +22,12 @@ interface Linha extends Condominio {
 const MAX_VISIVEIS = 30;
 
 /**
- * Gestão (quem gerencia câmeras: DEV, ADMIN_MASTER, ADMIN e TECNICO).
+ * Gestão (quem gerencia câmeras: DEV, ADMIN_MASTER, ADMIN e TECNICO). Usuários e moradores ficam só
+ * na dash: este app fala com a API dos instaladores, que não tem essas rotas.
  * Em cima, as ferramentas; embaixo, escolher o condomínio para cuidar dos postes e câmeras dele.
  */
 export default function GestaoScreen() {
   const router = useRouter();
-  const { usuario } = useAuth();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
   const [linhas, setLinhas] = useState<Linha[]>([]);
@@ -81,16 +79,6 @@ export default function GestaoScreen() {
     return termo ? linhas.filter(l => l.nome.toUpperCase().includes(termo)) : linhas;
   }, [linhas, busca]);
 
-  const ferramenta = (titulo: string, apoio: string, icone: React.ReactNode, aoTocar: () => void) => (
-    <Cartao onPress={aoTocar} rotulo={`${titulo}. ${apoio}`} style={styles.linha}>
-      <IconeCaixa>{icone}</IconeCaixa>
-      <View style={styles.linhaTexto}>
-        <Text style={styles.nome}>{titulo}</Text>
-        <Text style={styles.resumo}>{apoio}</Text>
-      </View>
-    </Cartao>
-  );
-
   return (
     <View style={styles.tela}>
 
@@ -120,26 +108,6 @@ export default function GestaoScreen() {
               )}
             </Cartao>
           </Bloco>
-
-          {podeGerenciarUsuarios(usuario?.role) && (
-            <Bloco titulo="Usuários">
-              <Toque
-                onPress={() => router.push({ pathname: '/admin/usuarios', params: { novo: '1' } })}
-                brilho
-                accessibilityRole="button"
-                accessibilityLabel="Criar novo usuário"
-                style={styles.criar}
-              >
-                <GlifoMais cor={cores.sobreLuz} tamanho={componentes.iconeCaixa.glifo} />
-                <View style={styles.linhaTexto}>
-                  <Text style={styles.criarTitulo}>Criar novo usuário</Text>
-                  <Text style={styles.criarApoio}>Morador, técnico, administrador</Text>
-                </View>
-              </Toque>
-              {ferramenta('Ver todos os usuários', 'Nível, bloqueio, senha e o que cada morador vê',
-                <GlifoPessoas cor={cores.azul} tamanho={componentes.iconeCaixa.glifo} />, () => router.push('/admin/usuarios'))}
-            </Bloco>
-          )}
 
           <Bloco titulo="Postes e câmeras">
             <Campo rotulo="Escolha o condomínio" placeholder="Buscar pelo nome" autoCorrect={false} value={busca} onChangeText={setBusca} />
@@ -189,12 +157,6 @@ export default function GestaoScreen() {
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  criar: {
-    ...aceso(c), borderRadius: raio.grande, minHeight: componentes.botao.altura + espaco[5],
-    flexDirection: 'row', alignItems: 'center', gap: espaco[3.5], paddingHorizontal: espaco[5], paddingVertical: espaco[3.5],
-  },
-  criarTitulo: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.sobreLuz },
-  criarApoio: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.sobreLuz, opacity: 0.85 },
   diagnostico: { padding: espaco[3.5], gap: espaco[3.5] },
   diagnosticoCabeca: { flexDirection: 'row', alignItems: 'center', gap: espaco[3] },
   diagnosticoNuvem: { borderTopWidth: 1, borderTopColor: c.linha, paddingTop: espaco[3.5] },

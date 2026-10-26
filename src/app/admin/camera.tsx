@@ -51,6 +51,9 @@ export default function FormularioDeCameraScreen() {
   const [copiado, setCopiado] = useState<boolean | null>(null);   // null = ainda não tentou; false = o aparelho recusou
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // câmeras criadas em lote: ficam na tela com o endereço de cada uma, para configurar uma a uma
+  const [criadas, setCriadas] = useState<Camera[] | null>(null);
+  const [copiadaId, setCopiadaId] = useState<number | null>(null);
 
   function preencher(c: Camera) {
     setCamera(c);
@@ -126,12 +129,12 @@ export default function FormularioDeCameraScreen() {
       } else if (emLote) {
         // várias de uma vez: o servidor numera pelo {n} e devolve um endereço por câmera
         const padrao = nome.includes('{n}') ? nome.trim() : `${nome.trim()} {n}`;
-        await api<Camera[]>('/cameras/lote', {
+        const lote = await api<Camera[]>('/cameras/lote', {
           method: 'POST',
           body: { condominio_id: condominioId, poste_id: posteId, quantidade: total, nome_padrao: padrao, dias_retencao: retencao, corrigir_tempo: corrigirTempo },
         });
-        // os endereços ficam na lista do condomínio, um em cada câmera
-        router.back();
+        // fica na tela: o endereço de cada câmera, para copiar e conferir ao vivo uma a uma
+        setCriadas(lote);
         return;
       } else {
         const c = await api<Camera>('/cameras', {
@@ -156,7 +159,7 @@ export default function FormularioDeCameraScreen() {
     setBuscaDestino(texto);
     if (texto.trim().length < 3) { setDestinos([]); return; }   // a rota exige pelo menos 3 letras
     try {
-      const lista = await api<Condominio[]>(`/condominios/search?nome=${encodeURIComponent(texto.trim())}&tipo=CONDOMINIO`);
+      const lista = await api<Condominio[]>(`/condominios?busca=${encodeURIComponent(texto.trim())}`);
       setDestinos(lista.filter(c => c.id !== camera?.condominio_id).slice(0, 6));
     } catch {
       setDestinos([]);
@@ -209,6 +212,48 @@ export default function FormularioDeCameraScreen() {
     const deu = await Clipboard.setStringAsync(endereco).catch(() => false);
     setCopiado(deu);
     if (deu) setTimeout(() => setCopiado(null), 2500);
+  }
+
+  async function copiarDaLista(c: Camera) {
+    if (!c.rtmp_url) return;
+    const deu = await Clipboard.setStringAsync(c.rtmp_url).catch(() => false);
+    setCopiadaId(deu ? c.id : null);
+    if (!deu) setErro('Não foi possível copiar neste aparelho. Use Enviar todos os endereços.');
+  }
+
+  if (criadas) {
+    const todos = criadas.map(c => `${c.nome}\n${c.rtmp_url ?? ''}`).join('\n\n');
+    return (
+      <View style={styles.tela}>
+        <Cabecalho titulo={`${criadas.length} câmeras criadas`} />
+        <ScrollView contentContainerStyle={styles.conteudo}>
+          <Mensagem texto="Configure cada câmera com o endereço dela. Depois toque em Conferir ao vivo para ver se a imagem chegou." tom="azul" />
+          {erro && <Mensagem texto={erro} tom="erro" />}
+          {criadas.map((c, i) => (
+            <Secao key={c.id} titulo={`${i + 1}. ${c.nome}`}>
+              {c.rtmp_url && (
+                <Toque
+                  onPress={() => { void copiarDaLista(c); }}
+                  brilho
+                  accessibilityRole="button"
+                  accessibilityLabel={`Copiar o endereço de ${c.nome}`}
+                  style={[styles.endereco, copiadaId === c.id && styles.enderecoCopiado]}
+                >
+                  <Text style={styles.enderecoTexto}>{c.rtmp_url}</Text>
+                  <Text style={[styles.enderecoDica, copiadaId === c.id && styles.enderecoDicaCopiado]} accessibilityLiveRegion="polite">
+                    {copiadaId === c.id ? 'Endereço copiado' : 'Toque para copiar'}
+                  </Text>
+                </Toque>
+              )}
+              <Botao titulo="Conferir ao vivo" variante="secundario" onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })} />
+            </Secao>
+          ))}
+          <Mensagem texto="Quem tem estes endereços consegue mandar vídeo no lugar das câmeras. Passe só para o técnico." />
+          <Botao titulo="Enviar todos os endereços" variante="secundario" onPress={() => { void Share.share({ message: todos }); }} />
+          <Botao titulo="Voltar ao condomínio" onPress={() => router.back()} />
+        </ScrollView>
+      </View>
+    );
   }
 
   return (
@@ -342,6 +387,10 @@ export default function FormularioDeCameraScreen() {
                 {copiado === false && <Mensagem texto="Não foi possível copiar neste aparelho. Use o botão Enviar endereço." tom="erro" />}
                 <Mensagem texto="Quem tem este endereço consegue mandar vídeo no lugar da câmera. Passe só para o técnico." />
                 <Botao titulo="Enviar endereço" variante="secundario" onPress={() => { void Share.share({ message: camera.rtmp_url! }); }} />
+                <Botao
+                  titulo="Conferir ao vivo e diagnóstico"
+                  onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(camera.id) } })}
+                />
                 <Botao titulo="Gerar chave nova" variante="perigo" onPress={trocarChave} carregando={trocandoChave} />
               </>
             ) : (
