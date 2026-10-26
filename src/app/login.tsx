@@ -93,7 +93,7 @@ export default function LoginScreen() {
           <View style={styles.marca}>
             <LogoPlaca tamanho={componentes.logoPlaca.entrada} />
             <Text style={styles.nomeMarca}>CM PORT</Text>
-            <Text style={styles.lema}>Seu condomínio ao vivo, na palma da mão.</Text>
+            <Text style={styles.lema}>Técnico: instalar e conferir as câmeras.</Text>
           </View>
 
           <View>
