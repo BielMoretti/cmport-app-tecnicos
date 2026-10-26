@@ -12,23 +12,6 @@ export interface TokenResponse {
   nome: string;
 }
 
-export interface Usuario {
-  id: number;
-  nome: string;
-  email: string;
-  role: Role;
-  ativo: boolean;
-  criado_em: string;
-  /** login preso a um aparelho só. Ausente = o servidor ainda não tem essa trava. */
-  so_um_aparelho?: boolean;
-  /** o aparelho registrado no primeiro login ("samsung SM-A546E"); nulo = ainda não entrou */
-  aparelho_nome?: string | null;
-  aparelho_em?: string | null;
-  /** o condomínio do síndico ou do morador. Ausente = o servidor ainda não manda. */
-  condominio_id?: number | null;
-  condominio_nome?: string | null;
-}
-
 export interface Condominio {
   id: number;
   nome: string;
