@@ -59,10 +59,6 @@ function Rotas() {
           <Stack.Screen name="admin/condominio/[id]" options={{ title: 'Administrar' }} />
           <Stack.Screen name="admin/poste" options={{ title: 'Poste' }} />
           <Stack.Screen name="admin/camera" options={{ title: 'Câmera' }} />
-          <Stack.Screen name="admin/usuarios" options={{ title: 'Usuários' }} />
-          <Stack.Screen name="admin/usuario" options={{ title: 'Usuário' }} />
-          <Stack.Screen name="admin/moradores-lote" options={{ title: 'Moradores em lote' }} />
-          <Stack.Screen name="admin/acesso-em-grupo" options={{ title: 'Liberar em grupo' }} />
           <Stack.Screen name="admin/diagnostico" options={{ title: 'Diagnóstico' }} />
         </Stack.Protected>
 

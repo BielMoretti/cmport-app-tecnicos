@@ -10,7 +10,6 @@ import { AnelDePontos, ColunasDePontos, Ladrilho, Leitura, LinhaDePontos, Nivel 
 import { Esqueleto, Saudacao } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
-import { podeGerenciarUsuarios } from '@/lib/acesso';
 import { api, ApiError } from '@/lib/api';
 import { urlAbsoluta } from '@/lib/config';
 import { NUVEM_CONTRATADA_BYTES, tamanhoLegivel } from '@/lib/nuvem';
@@ -18,7 +17,7 @@ import { buscarResumos, type Resumo24h } from '@/lib/resumo24h';
 import { estadoDe } from '@/lib/saude';
 import usoDoAssistente from '@/lib/usoDoAssistente.json';
 import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
-import type { Camera, Poste, Usuario } from '@/lib/types';
+import type { Camera, Poste } from '@/lib/types';
 
 const INTERVALO_MS = 30_000;
 const TROCA_DA_RONDA_MS = 4_000;
@@ -45,11 +44,9 @@ export default function MonitorScreen() {
   const { usuario } = useAuth();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
-  const gereUsuarios = podeGerenciarUsuarios(usuario?.role);
 
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [postes, setPostes] = useState<Poste[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
   const [resumos, setResumos] = useState<Resumo24h[]>([]);
   const [analisando, setAnalisando] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -72,12 +69,11 @@ export default function MonitorScreen() {
       setErro(null);
       setAtualizadoEm(new Date());
       redesenhar(n => n + 1);
-      if (gereUsuarios) api<Usuario[]>('/usuarios').then(setUsuarios).catch(() => {});
     } catch (e) {
       setSemResposta(true);
       setErro(e instanceof ApiError ? e.message : 'Não foi possível falar com o servidor.');
     }
-  }, [gereUsuarios]);
+  }, []);
 
   useFocusEffect(useCallback(() => {
     carregar().finally(() => setCarregando(false));
@@ -269,15 +265,6 @@ export default function MonitorScreen() {
               <Ladrilho numero={++n} titulo="Postes">
                 <Leitura valor={String(postes.length)} legenda={postesVazios === 0 ? 'todos com câmera' : `${postesVazios} sem câmera`} />
               </Ladrilho>
-
-              {usuarios && (
-                <Ladrilho numero={++n} titulo="Usuários">
-                  <Leitura
-                    valor={String(usuarios.filter(u => u.ativo).length)}
-                    legenda={`${usuarios.filter(u => u.ativo && u.role === 'MORADOR').length} moradores, ${usuarios.filter(u => !u.ativo).length} bloqueados`}
-                  />
-                </Ladrilho>
-              )}
 
               {/* quanto o assistente trabalhou no projeto — coisa de desenvolvimento, só o nível DEV vê */}
               {usuario?.role === 'DEV' && usoDoAssistente.encontrado && (
