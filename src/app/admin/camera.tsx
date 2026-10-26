@@ -3,12 +3,13 @@ import { KeyboardAvoidingView, ScrollView, Share, StyleSheet, Text, View } from 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 
-import { Cabecalho } from '@/components/ui';
+import { Cabecalho, Pilula, Progresso } from '@/components/ui';
 import { BarraCarregando, Toque } from '@/components/efeitos';
 import { Alternador, Botao, Campo, confirmar, Mensagem, Opcoes, Secao } from '@/components/formulario';
 import { useEstilos } from '@/contexts/TemaContext';
 import { api, ApiError } from '@/lib/api';
 import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
+import { rotuloDaTransmissao, useTransmissao } from '@/lib/transmissao';
 import type { Camera, Condominio, DiasRetencao, Poste, TipoConexaoCamera } from '@/lib/types';
 
 /**
@@ -54,6 +55,12 @@ export default function FormularioDeCameraScreen() {
   // câmeras criadas em lote: ficam na tela com o endereço de cada uma, para configurar uma a uma
   const [criadas, setCriadas] = useState<Camera[] | null>(null);
   const [copiadaId, setCopiadaId] = useState<number | null>(null);
+
+  // enquanto o técnico configura: as criadas em lote, ou a câmera aberta se ainda não transmite
+  const acompanhadas = criadas
+    ? criadas.map(c => c.id)
+    : camera?.tipo_conexao === 'RTMP_ISOLADA' && camera.ativo && camera.rtmp_url ? [camera.id] : [];
+  const { estados, conferindo, retomar } = useTransmissao(condominioId, acompanhadas);
 
   function preencher(c: Camera) {
     setCamera(c);
@@ -223,14 +230,32 @@ export default function FormularioDeCameraScreen() {
 
   if (criadas) {
     const todos = criadas.map(c => `${c.nome}\n${c.rtmp_url ?? ''}`).join('\n\n');
+    const transmitindo = criadas.filter(c => estados.get(c.id) === 'online').length;
+    const todasNoAr = transmitindo === criadas.length;
     return (
       <View style={styles.tela}>
         <Cabecalho titulo={`${criadas.length} câmeras criadas`} />
         <ScrollView contentContainerStyle={styles.conteudo}>
-          <Mensagem texto="Configure cada câmera com o endereço dela. Depois toque em Conferir ao vivo para ver se a imagem chegou." tom="azul" />
+          <Mensagem texto="Configure cada câmera com o endereço dela. Cada uma passa para Transmitindo aqui quando o vídeo começa a chegar." tom="azul" />
+          <Secao titulo="Transmissão">
+            <Text style={styles.resumo} accessibilityLiveRegion="polite">
+              {todasNoAr ? 'Todas transmitindo' : `${transmitindo} de ${criadas.length} transmitindo`}
+            </Text>
+            <Progresso fracao={transmitindo / criadas.length} rotulo={`${transmitindo} de ${criadas.length} câmeras transmitindo`} />
+            {todasNoAr ? (
+              <Text style={styles.resumoDica}>Toque em Conferir ao vivo para ver a imagem de cada uma.</Text>
+            ) : conferindo ? (
+              <Text style={styles.resumoDica}>O app confere sozinho a cada 5 segundos.</Text>
+            ) : (
+              <Botao titulo="Conferir de novo" variante="secundario" onPress={retomar} />
+            )}
+          </Secao>
           {erro && <Mensagem texto={erro} tom="erro" />}
           {criadas.map((c, i) => (
             <Secao key={c.id} titulo={`${i + 1}. ${c.nome}`}>
+              <View style={styles.estado}>
+                <Pilula texto={rotuloDaTransmissao(estados.get(c.id))} tom={estados.get(c.id) === 'online' ? 'azul' : 'suave'} />
+              </View>
               {c.rtmp_url && (
                 <Toque
                   onPress={() => { void copiarDaLista(c); }}
@@ -372,6 +397,11 @@ export default function FormularioDeCameraScreen() {
           <Secao titulo="Endereço para configurar na câmera">
             {camera.rtmp_url ? (
               <>
+                {camera.ativo && (
+                  <View style={styles.estado}>
+                    <Pilula texto={rotuloDaTransmissao(estados.get(camera.id))} tom={estados.get(camera.id) === 'online' ? 'azul' : 'suave'} />
+                  </View>
+                )}
                 <Toque
                   onPress={() => { void copiarEndereco(camera.rtmp_url!); }}
                   brilho
@@ -416,4 +446,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   enderecoTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
   enderecoDica: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginTop: espaco[1.5] },
   enderecoDicaCopiado: { fontFamily: fontes.textoForte, color: c.azul },
+  estado: { alignSelf: 'flex-start' },
+  resumo: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
+  resumoDica: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
 });
