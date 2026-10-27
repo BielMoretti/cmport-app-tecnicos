@@ -126,12 +126,12 @@ const styles = StyleSheet.create({
   caixa: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, overflow: 'hidden' },
   caixaCheia: { flex: 1, width: '100%', backgroundColor: palco.fundo, overflow: 'hidden' },
   centro: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', gap: espaco[3.5], padding: espaco[6] },
-  aviso: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
+  aviso: { ...fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
   selo: {
     position: 'absolute', top: espaco[3], left: espaco[3], flexDirection: 'row', alignItems: 'center', gap: espaco[1.5],
     backgroundColor: palco.veu, borderRadius: raio.pequeno, paddingHorizontal: espaco[2], paddingVertical: espaco[1],
   },
-  seloTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: palco.texto },
+  seloTexto: { ...fontes.textoForte, fontSize: corpo.pequeno, color: palco.texto },
   botao: { backgroundColor: palco.botaoFundo, borderRadius: componentes.botaoNoPalco.raio, paddingHorizontal: componentes.botaoNoPalco.respiroH, minHeight: componentes.botaoNoPalco.altura, justifyContent: 'center' },
-  botaoTexto: { fontFamily: fontes.nome, fontSize: corpo.base, color: palco.botaoTexto },
+  botaoTexto: { ...fontes.nome, fontSize: corpo.base, color: palco.botaoTexto },
 });

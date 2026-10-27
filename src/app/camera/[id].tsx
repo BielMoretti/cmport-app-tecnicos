@@ -8,7 +8,7 @@ import { GlifoEstrela, GlifoExpandir, GlifoRecolher, Mira } from '@/components/a
 import { Toque } from '@/components/efeitos';
 import CameraPlayer from '@/components/CameraPlayer';
 import Gravacoes from '@/components/Gravacoes';
-import { Cabecalho, Cartao, Pilula } from '@/components/ui';
+import { Cabecalho, Cartao, Pilula, type TomDeEstado } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { useFavoritas } from '@/lib/favoritas';
 import { api, ApiError } from '@/lib/api';
@@ -17,7 +17,7 @@ import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, aceso, vid
 import type { Camera, SaudeDaCamera } from '@/lib/types';
 
 type Modo = 'aoVivo' | 'gravacoes';
-const TOM: Record<Estado, 'azul' | 'erro' | 'suave'> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
+const TOM: Record<Estado, TomDeEstado> = { online: 'ok', offline: 'erro', desconhecido: 'suave' };
 
 /** Uma câmera: o que ela mostra agora (ao vivo) ou o que mostrou (gravações). */
 export default function CameraScreen() {
@@ -98,7 +98,7 @@ export default function CameraScreen() {
       {telaCheia && <StatusBar hidden />}
       {!telaCheia && (
         <Cabecalho
-          titulo="Câmera"
+          titulo={camera?.nome ?? 'Câmera'}
           direita={Number.isInteger(cameraId) && (
             <Toque
               onPress={() => alternarFavorita(cameraId)}
@@ -115,7 +115,6 @@ export default function CameraScreen() {
 
       <View style={telaCheia ? styles.corpoCheio : styles.corpo}>
         {!telaCheia && <View style={styles.ficha}>
-          <Text style={styles.nome}>{camera?.nome ?? ' '}</Text>
           {camera && (
             <Text style={styles.apoio} numberOfLines={2}>
               {[camera.condominio_nome, camera.poste_nome].filter(Boolean).join(', ')}
@@ -125,7 +124,7 @@ export default function CameraScreen() {
             <View style={styles.pilulas}>
               <Pilula texto={ROTULO_DO_ESTADO[estado]} tom={TOM[estado]} />
               {saude && saude.status !== 'SEM_DADOS' && (
-                <Pilula texto={ROTULO_DA_SAUDE[saude.status]} tom={saude.status === 'SAUDAVEL' ? 'azul' : saude.status === 'PROBLEMA' ? 'erro' : 'suave'} />
+                <Pilula texto={ROTULO_DA_SAUDE[saude.status]} tom={saude.status === 'SAUDAVEL' ? 'ok' : saude.status === 'PROBLEMA' ? 'erro' : saude.status === 'ATENCAO' ? 'espera' : 'suave'} />
               )}
             </View>
           )}
@@ -206,26 +205,25 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     borderRadius: componentes.alvoDeToque / 2, backgroundColor: palco.veu, alignItems: 'center', justifyContent: 'center',
   },
   estrela: {
-    width: componentes.avatar, height: componentes.avatar, borderRadius: componentes.avatar / 2, ...vidro(c, 'forte'),
+    width: componentes.alvoDeToque, height: componentes.alvoDeToque,
     alignItems: 'center', justifyContent: 'center',
   },
   conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', paddingBottom: espaco[10] },
-  corpo: { paddingHorizontal: espaco[5], gap: espaco[4] },
+  corpo: { paddingHorizontal: espaco[4], paddingTop: espaco[4], gap: espaco[4] },
   ficha: { gap: espaco[1] },
-  nome: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
-  apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
+  apoio: { ...fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
   pilulas: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco[2], marginTop: espaco[2] },
 
-  abas: { flexDirection: 'row', ...vidro(c), borderRadius: raio.pilula, padding: espaco[1] },
-  aba: { flex: 1, minHeight: componentes.chip.altura + espaco[1], borderRadius: raio.pilula, alignItems: 'center', justifyContent: 'center' },
+  abas: { flexDirection: 'row', ...vidro(c), borderRadius: raio.medio, padding: espaco[1] },
+  aba: { flex: 1, minHeight: componentes.alvoDeToque - espaco[1], borderRadius: raio.medio - espaco[1], alignItems: 'center', justifyContent: 'center' },
   abaAtiva: { ...aceso(c) },
-  abaTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.textoSuave },
+  abaTexto: { ...fontes.textoForte, fontSize: corpo.base, color: c.textoSuave },
   abaTextoAtiva: { color: c.sobreLuz },
 
   palco: { borderRadius: raio.grande, overflow: 'hidden', borderWidth: 1, borderColor: c.vidroBorda, boxShadow: c.vidroSombra },
   palcoVazio: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, alignItems: 'center', justifyContent: 'center', padding: espaco[6] },
-  palcoTexto: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
+  palcoTexto: { ...fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
   saude: { gap: espaco[1] },
-  saudeTitulo: { fontFamily: fontes.nome, fontSize: corpo.nome, color: c.texto },
-  erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro, padding: espaco[5] },
+  saudeTitulo: { ...fontes.nome, fontSize: corpo.nome, color: c.texto },
+  erro: { ...fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro, padding: espaco[5] },
 });

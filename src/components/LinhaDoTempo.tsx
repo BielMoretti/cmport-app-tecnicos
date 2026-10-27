@@ -171,8 +171,8 @@ export default function LinhaDoTempo({
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   bloco: { gap: espaco[1.5] },
-  dica: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, textAlign: 'center' },
-  dicaAtiva: { fontFamily: fontes.textoForte, color: c.azul },
+  dica: { ...fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, textAlign: 'center' },
+  dicaAtiva: { ...fontes.textoForte, color: c.azul },
   barra: { height: componentes.linhaDoTempo.altura, borderRadius: raio.medio, backgroundColor: c.fundo, borderWidth: 1, borderColor: c.linha, overflow: 'hidden' },
   barraAtiva: { borderColor: c.luz, boxShadow: c.brilho },
   faixa: { position: 'absolute', top: 0, bottom: 0, backgroundColor: c.linha },
@@ -187,6 +187,6 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   // cada rótulo é centrado no seu ponto (largura fixa, meia largura pra trás)
   rotulo: {
     position: 'absolute', width: componentes.linhaDoTempo.rotulo, marginLeft: -componentes.linhaDoTempo.rotulo / 2, textAlign: 'center',
-    fontFamily: fontes.texto, fontSize: corpo.micro, color: c.textoSuave,
+    ...fontes.texto, fontSize: corpo.micro, color: c.textoSuave,
   },
 });

@@ -4,6 +4,8 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",
+    "@expo-google-fonts/atkinson-hyperlegible-mono": "^0.4.1",
+    "@expo-google-fonts/atkinson-hyperlegible-next": "^0.4.1",
     "@expo-google-fonts/barlow": "^0.4.1",
     "@expo-google-fonts/barlow-semi-condensed": "^0.4.1",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",

@@ -1,16 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator, Animated, Easing, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View,
-} from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fitas, Reflexo } from '@/components/arte';
-import BotaoTema from '@/components/BotaoTema';
-import { NATIVO, Toque, useReduzirMovimento } from '@/components/efeitos';
+import { Toque } from '@/components/efeitos';
 import { LogoPlaca } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ApiError } from '@/lib/api';
-import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
+import { aceso, componentes, corpo, entrelinha, espaco, fontes, vidro, type Paleta } from '@/lib/tema';
 
 // Freio no aparelho: depois de 5 senhas erradas seguidas, o botão espera 1 minuto. Não é a
 // proteção de verdade (quem quiser contorna) — essa é a trava do servidor, que responde 429.
@@ -23,13 +20,12 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
-  const reduzir = useReduzirMovimento();
+  const topo = useSafeAreaInsets().top;
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [foco, setFoco] = useState<'email' | 'senha' | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const [larguraBotao, setLarguraBotao] = useState(0);
   const [espera, setEspera] = useState(() => Math.max(0, Math.ceil((liberadoEm - Date.now()) / 1000)));
 
   // conta o freio para baixo, de segundo em segundo
@@ -38,12 +34,6 @@ export default function LoginScreen() {
     const t = setTimeout(() => setEspera(Math.max(0, Math.ceil((liberadoEm - Date.now()) / 1000))), 1000);
     return () => clearTimeout(t);
   }, [espera]);
-
-  // Abertura: o cartão de vidro sobe e aparece
-  const abertura = useRef(new Animated.Value(reduzir ? 1 : 0)).current;
-  useEffect(() => {
-    Animated.timing(abertura, { toValue: 1, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVO }).start();
-  }, [abertura]);
 
   const podeEnviar = email.trim().length > 0 && senha.length > 0 && !enviando && espera === 0;
 
@@ -73,29 +63,17 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
-      <Fitas />
-
-      <View style={styles.topo}>
-        <BotaoTema />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
-        <Animated.View
-          style={[
-            styles.cartao,
-            {
-              opacity: abertura,
-              transform: [{ translateY: abertura.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) }],
-            },
-          ]}
-        >
-          <View style={styles.fio} pointerEvents="none" />
-          <View style={styles.marca}>
-            <LogoPlaca tamanho={componentes.logoPlaca.entrada} />
+      <ScrollView contentContainerStyle={[styles.conteudo, { paddingTop: topo + espaco[8] }]} keyboardShouldPersistTaps="handled">
+        <View style={styles.marca}>
+          <LogoPlaca tamanho={componentes.logoPlaca.entrada} />
+          <View>
             <Text style={styles.nomeMarca}>CM PORT</Text>
             <Text style={styles.lema}>Técnico: instalar e conferir as câmeras.</Text>
           </View>
+        </View>
 
+        <View style={styles.formulario}>
+          <Text style={styles.titulo} accessibilityRole="header">Entrar</Text>
           <View>
             <Text style={styles.rotulo}>Email</Text>
             <TextInput
@@ -104,6 +82,8 @@ export default function LoginScreen() {
               autoCorrect={false}
               autoComplete="email"
               keyboardType="email-address"
+              textContentType="username"
+              accessibilityLabel="Email"
               value={email}
               onChangeText={setEmail}
               onFocus={() => setFoco('email')}
@@ -116,6 +96,8 @@ export default function LoginScreen() {
               style={[styles.campo, foco === 'senha' && styles.campoFoco]}
               secureTextEntry
               autoComplete="password"
+              textContentType="password"
+              accessibilityLabel="Senha"
               value={senha}
               onChangeText={setSenha}
               onSubmitEditing={entrar}
@@ -135,14 +117,13 @@ export default function LoginScreen() {
             onPress={entrar}
             disabled={!podeEnviar}
             accessibilityRole="button"
-            style={[styles.botao, podeEnviar ? styles.botaoPronto : styles.botaoDesabilitado]}
+            accessibilityState={{ disabled: !podeEnviar }}
+            style={[styles.botao, !podeEnviar && styles.botaoDesabilitado]}
           >
-            <View style={styles.botaoMiolo} onLayout={e => setLarguraBotao(e.nativeEvent.layout.width)}>
-              {podeEnviar && <Reflexo largura={larguraBotao} />}
-              {enviando ? <ActivityIndicator color={cores.sobreLuz} /> : <Text style={styles.botaoTexto}>Entrar</Text>}
-            </View>
+            {enviando ? <ActivityIndicator color={cores.sobreLuz} /> : <Text style={styles.botaoTexto}>Entrar</Text>}
           </Toque>
-        </Animated.View>
+          <Text style={styles.ajuda}>Use o mesmo email e a mesma senha da dash.</Text>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -150,40 +131,28 @@ export default function LoginScreen() {
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1 },
-  topo: { alignItems: 'flex-end', paddingHorizontal: espaco[4], paddingTop: componentes.alvoDeToque },
   conteudo: {
-    flexGrow: 1, justifyContent: 'center', paddingHorizontal: espaco[5], paddingBottom: espaco[12],
+    flexGrow: 1, paddingHorizontal: espaco[5], paddingBottom: espaco[12], gap: espaco[10],
     maxWidth: componentes.tela.larguraMaxFormulario, width: '100%', alignSelf: 'center',
   },
-  // um cartão de vidro só, com a marca e o formulário dentro
-  cartao: {
-    ...vidro(c, 'forte'), borderRadius: raio.grande + espaco[1], boxShadow: c.vidroSombra,
-    paddingHorizontal: espaco[6], paddingTop: espaco[8], paddingBottom: espaco[7], gap: espaco[4], overflow: 'hidden',
-  },
-  fio: { position: 'absolute', top: 0, left: raio.grande, right: raio.grande, height: 1, backgroundColor: c.vidroFio },
-  marca: { alignItems: 'center', justifyContent: 'center', marginBottom: espaco[3] },
-  nomeMarca: {
-    fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.destaque, color: c.texto,
-    letterSpacing: espaco[1.5], marginTop: espaco[4], paddingLeft: espaco[1.5],
-  },
-  lema: {
-    fontFamily: fontes.texto, fontSize: corpo.legenda, lineHeight: entrelinha.base, color: c.textoSuave,
-    marginTop: espaco[0.5], textAlign: 'center',
-  },
-  rotulo: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginBottom: espaco[1.5] },
+  marca: { flexDirection: 'row', alignItems: 'center', gap: espaco[4] },
+  nomeMarca: { ...fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto, letterSpacing: espaco[1.5] },
+  lema: { ...fontes.texto, fontSize: corpo.legenda, lineHeight: entrelinha.base, color: c.textoSuave, marginTop: espaco[0.5] },
+  formulario: { gap: espaco[4] },
+  titulo: { ...fontes.nome, fontSize: corpo.destaque, lineHeight: entrelinha.destaque, color: c.texto, letterSpacing: -0.5 },
+  rotulo: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginBottom: espaco[1.5] },
   campo: {
-    ...vidro(c), borderRadius: componentes.campo.raio,
-    fontFamily: fontes.texto, fontSize: corpo.nome, color: c.texto,
+    ...vidro(c), borderRadius: componentes.campo.raio, minHeight: componentes.botao.altura,
+    ...fontes.texto, fontSize: corpo.nome, color: c.texto,
     paddingHorizontal: componentes.campo.respiroH, paddingVertical: componentes.campo.respiroV,
   },
-  campoFoco: { borderColor: c.azul, boxShadow: c.brilho },
-  erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.erro },
+  campoFoco: { borderColor: c.azul },
+  erro: { ...fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro },
   botao: {
     ...aceso(c), borderRadius: componentes.botao.raio, minHeight: componentes.botao.altura,
-    marginTop: espaco[2], overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center', marginTop: espaco[2],
   },
-  botaoMiolo: { flex: 1, minHeight: componentes.botao.altura, alignItems: 'center', justifyContent: 'center' },
-  botaoPronto: {},
-  botaoDesabilitado: { opacity: 0.55, boxShadow: 'none' },
-  botaoTexto: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.sobreLuz },
+  botaoDesabilitado: { opacity: 0.45 },
+  botaoTexto: { ...fontes.nome, fontSize: corpo.nome, color: c.sobreLuz },
+  ajuda: { ...fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
 });

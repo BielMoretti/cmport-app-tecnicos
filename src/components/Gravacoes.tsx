@@ -359,7 +359,6 @@ function CartaoDeEvento({ evento, ativo, aoTocar }: { evento: Evento; ativo: boo
     <View style={styles.eventoCaixa}>
       <Toque
         onPress={aoTocar}
-        brilho
         accessibilityRole="button"
         accessibilityLabel={`Assistir o movimento das ${horaDe(evento.inicio)} às ${horaDe(evento.fim)}, ${evento.minutos} ${evento.minutos === 1 ? 'minuto' : 'minutos'}`}
         style={[styles.evento, ativo && styles.eventoAtivo]}
@@ -388,10 +387,10 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     ...vidro(c, 'forte'), borderRadius: raio.pilula, minHeight: componentes.botao.altura - espaco[1.5],
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espaco[2.5], paddingHorizontal: espaco[5],
   },
-  baixarTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.texto, fontVariant: ['tabular-nums'] },
+  baixarTexto: { ...fontes.textoForte, fontSize: corpo.base, color: c.texto, fontVariant: ['tabular-nums'] },
   palcoVazio: { width: '100%', aspectRatio: 16 / 9, backgroundColor: palco.fundo, alignItems: 'center', justifyContent: 'center', padding: espaco[6] },
-  palcoTexto: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
-  agora: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.texto, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  palcoTexto: { ...fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: palco.texto, textAlign: 'center' },
+  agora: { ...fontes.textoForte, fontSize: corpo.legenda, color: c.texto, textAlign: 'center', fontVariant: ['tabular-nums'] },
 
   controles: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espaco[3] },
   controle: {
@@ -402,23 +401,23 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     width: componentes.controle.principal, height: componentes.controle.principal, borderRadius: componentes.controle.principal / 2,
     ...aceso(c), borderColor: c.luz,
   },
-  controleTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto },
+  controleTexto: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.texto },
   desligado: { opacity: 0.4 },
 
   linhaDeChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: espaco[2] },
-  rotulo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginRight: espaco[1] },
+  rotulo: { ...fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginRight: espaco[1] },
   chip: {
     borderRadius: raio.pilula, ...vidro(c),
     paddingHorizontal: espaco[3], minHeight: componentes.chip.altura, minWidth: componentes.chip.altura, alignItems: 'center', justifyContent: 'center',
   },
   chipAtivo: { ...aceso(c), borderColor: c.luz },
-  chipTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
+  chipTexto: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
   chipTextoAtivo: { color: c.sobreLuz },
 
   cartaoDaBarra: { gap: espaco[3], padding: espaco[4] },
   dias: { gap: espaco[2] },
   janela: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espaco[3] },
-  janelaTexto: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.texto, fontVariant: ['tabular-nums'] },
+  janelaTexto: { ...fontes.textoForte, fontSize: corpo.legenda, color: c.texto, fontVariant: ['tabular-nums'] },
   seta: {
     width: componentes.chip.altura, height: componentes.chip.altura, borderRadius: componentes.chip.altura / 2,
     borderWidth: 1, borderColor: c.linha, alignItems: 'center', justifyContent: 'center',
@@ -428,21 +427,21 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   amostraGravado: { backgroundColor: c.linha },
   amostraMovimento: { backgroundColor: c.luz },
   amostraCursor: { backgroundColor: c.texto, width: espaco[1] },
-  legendaTexto: { fontFamily: fontes.texto, fontSize: corpo.micro, color: c.textoSuave, marginRight: espaco[2] },
+  legendaTexto: { ...fontes.texto, fontSize: corpo.micro, color: c.textoSuave, marginRight: espaco[2] },
 
   eventosCabeca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: espaco[3] },
-  titulo: { flex: 1, fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
+  titulo: { flex: 1, ...fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
   eventos: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -espaco[1.5] },
   eventoCaixa: { width: '50%', padding: espaco[1.5] },
   evento: { ...vidro(c), borderRadius: raio.medio, overflow: 'hidden' },
   eventoAtivo: { borderColor: c.luz, boxShadow: c.brilho },
   eventoFoto: { width: '100%', aspectRatio: 16 / 9, backgroundColor: c.predio },
   eventoTexto: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: espaco[2.5], paddingVertical: espaco[2] },
-  eventoHora: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto, fontVariant: ['tabular-nums'] },
-  eventoDuracao: { fontFamily: fontes.texto, fontSize: corpo.micro, color: c.azul },
+  eventoHora: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.texto, fontVariant: ['tabular-nums'] },
+  eventoDuracao: { ...fontes.texto, fontSize: corpo.micro, color: c.azul },
 
   mensagem: { gap: espaco[2] },
-  apoio: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
-  erro: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro },
-  link: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.azul },
+  apoio: { ...fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
+  erro: { ...fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.erro },
+  link: { ...fontes.textoForte, fontSize: corpo.base, color: c.azul },
 });
