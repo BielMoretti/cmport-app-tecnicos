@@ -3,34 +3,28 @@ import { Animated, Easing, Image, Pressable, StyleSheet, Text, View, type StyleP
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Contador, Fundo, GlifoVoltar } from '@/components/arte';
-import BotaoTema from '@/components/BotaoTema';
+import { GlifoVoltar } from '@/components/arte';
 import { NATIVO, Toque, useReduzirMovimento } from '@/components/efeitos';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { aceso, componentes, corpo, entrelinha, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
 
 /**
- * Kit visual do app: painéis de vidro sobre um fundo azul-marinho com luz, tudo
- * arredondado, um assunto por cartão. Toda tela é montada com estas peças — é o que
- * mantém o app com cara de uma coisa só.
+ * Kit visual do app: superfícies opacas sobre o fundo escuro, contorno de 1px, cantos
+ * pequenos. Toda tela é montada com estas peças — é o que mantém o app com cara de uma coisa só.
  */
 
-/** Moldura de toda tela: o fundo com as luzes, e a tela por cima. */
+/** Moldura de toda tela: o fundo chapado. */
 export function Tela({ children }: { children: ReactNode }) {
-  return (
-    <View style={estilosFixos.tela}>
-      <Fundo />
-      {children}
-    </View>
-  );
+  const styles = useEstilos(criarEstilos);
+  return <View style={styles.tela}>{children}</View>;
 }
 
-/** O logo sobre uma placa clara de vidro — o leão é grafite e some direto no fundo escuro. */
+/** O logo sobre uma placa clara — o leão é grafite e some direto no fundo escuro. */
 export function LogoPlaca({ tamanho, completo = false }: { tamanho: number; completo?: boolean }) {
   const styles = useEstilos(criarEstilos);
   return (
-    <View style={[styles.logoPlaca, { width: tamanho, height: tamanho, borderRadius: tamanho * 0.3, padding: tamanho * 0.12 }]}>
+    <View style={[styles.logoPlaca, { width: tamanho, height: tamanho, borderRadius: tamanho * 0.22, padding: tamanho * 0.1 }]}>
       <Image
         source={completo ? require('../../assets/logo.png') : require('../../assets/leao.png')}
         style={estilosFixos.logo}
@@ -42,24 +36,21 @@ export function LogoPlaca({ tamanho, completo = false }: { tamanho: number; comp
   );
 }
 
-/** Cartão arredondado. Com `onPress`, afunda de leve e acende o brilho azul. */
+/** Bloco de superfície. Com `onPress`, vira um botão grande (afunda de leve ao tocar). */
 export function Cartao({
   children, onPress, destaque = false, rotulo, style,
 }: { children: ReactNode; onPress?: () => void; destaque?: boolean; rotulo?: string; style?: StyleProp<ViewStyle> }) {
   const styles = useEstilos(criarEstilos);
   const estilo = [styles.cartao, destaque && styles.cartaoDestaque, style];
-  // o fio de luz no topo é o que faz o painel ler como vidro
-  const fio = <View style={styles.fio} pointerEvents="none" />;
-  if (!onPress) return <View style={estilo}>{fio}{children}</View>;
+  if (!onPress) return <View style={estilo}>{children}</View>;
   return (
-    <Toque onPress={onPress} brilho accessibilityRole="button" accessibilityLabel={rotulo} style={estilo}>
-      {fio}
+    <Toque onPress={onPress} accessibilityRole="button" accessibilityLabel={rotulo} style={estilo}>
       {children}
     </Toque>
   );
 }
 
-/** Caixinha arredondada com um ícone dentro, tingida de azul. */
+/** Quadradinho com um ícone dentro. */
 export function IconeCaixa({ children, tom = 'azul' }: { children: ReactNode; tom?: 'azul' | 'erro' | 'suave' }) {
   const styles = useEstilos(criarEstilos);
   return <View style={[styles.iconeCaixa, tom === 'erro' && styles.iconeCaixaErro, tom === 'suave' && styles.iconeCaixaSuave]}>{children}</View>;
@@ -73,7 +64,7 @@ export function Bloco({ titulo, acao, aoTocar, children }: { titulo: string; aca
       <View style={styles.blocoCabeca}>
         <Text style={styles.blocoTitulo} accessibilityRole="header">{titulo}</Text>
         {acao && aoTocar && (
-          <Pressable onPress={aoTocar} hitSlop={espaco[3]} accessibilityRole="button">
+          <Pressable onPress={aoTocar} hitSlop={espaco[3]} accessibilityRole="button" style={styles.blocoAcaoArea}>
             <Text style={styles.blocoAcao}>{acao}</Text>
           </Pressable>
         )}
@@ -83,44 +74,34 @@ export function Bloco({ titulo, acao, aoTocar, children }: { titulo: string; aca
   );
 }
 
-/** Quadradinho de número: ícone em cima, o número que sobe contando, a legenda embaixo. */
-export function Numero({ icone, valor, legenda, tom = 'azul' }: { icone: ReactNode; valor: number; legenda: string; tom?: 'azul' | 'erro' }) {
-  const styles = useEstilos(criarEstilos);
-  return (
-    <View style={[styles.numero, tom === 'erro' && valor > 0 && styles.numeroErro]} accessibilityLabel={`${valor} ${legenda}`}>
-      {icone}
-      <Contador valor={valor} style={styles.numeroValor} />
-      <Text style={styles.numeroLegenda} numberOfLines={1}>{legenda}</Text>
-    </View>
-  );
-}
+export type TomDeEstado = 'ok' | 'espera' | 'erro' | 'suave';
 
 /** Pílula de estado: ponto colorido + texto (a cor nunca vai sozinha). */
-export function Pilula({ texto, tom = 'suave' }: { texto: string; tom?: 'azul' | 'erro' | 'suave' }) {
+export function Pilula({ texto, tom = 'suave' }: { texto: string; tom?: TomDeEstado }) {
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
-  const cor = tom === 'azul' ? cores.estadoOnline : tom === 'erro' ? cores.estadoOffline : cores.estadoNeutro;
+  const cor = { ok: cores.estadoOnline, espera: cores.estadoEspera, erro: cores.estadoOffline, suave: cores.estadoNeutro }[tom];
   return (
-    <View style={[styles.pilula, tom === 'azul' && styles.pilulaAzul, tom === 'erro' && styles.pilulaErro]}>
+    <View style={[styles.pilula, tom === 'ok' && styles.pilulaOk, tom === 'espera' && styles.pilulaEspera, tom === 'erro' && styles.pilulaErro]}>
       <View style={[styles.pilulaPonto, { backgroundColor: cor }]} />
       <Text style={styles.pilulaTexto}>{texto}</Text>
     </View>
   );
 }
 
-/** Barra de progresso que cresce do zero até o valor quando aparece. */
-export function Progresso({ fracao, rotulo }: { fracao: number; rotulo: string }) {
+/** Barra de progresso fina, que anda até o valor. */
+export function Progresso({ fracao, rotulo, tom = 'azul' }: { fracao: number; rotulo: string; tom?: 'azul' | 'ok' }) {
   const styles = useEstilos(criarEstilos);
   const reduzir = useReduzirMovimento();
   const f = Math.max(0, Math.min(1, fracao));
   const valor = useRef(new Animated.Value(reduzir ? f : 0)).current;
   useEffect(() => {
     // a largura não anima no driver nativo
-    Animated.timing(valor, { toValue: f, duration: reduzir ? 0 : 900, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    Animated.timing(valor, { toValue: f, duration: reduzir ? 0 : 500, easing: Easing.out(Easing.exp), useNativeDriver: false }).start();
   }, [f, reduzir, valor]);
   return (
     <View style={styles.progresso} accessibilityRole="progressbar" accessibilityLabel={rotulo} accessibilityValue={{ min: 0, max: 100, now: Math.round(f * 100) }}>
-      <Animated.View style={[styles.progressoCheio, { width: valor.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
+      <Animated.View style={[styles.progressoCheio, tom === 'ok' && styles.progressoOk, { width: valor.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
     </View>
   );
 }
@@ -142,11 +123,11 @@ export function Esqueleto({ altura, largura = '100%' }: { altura: number; largur
   return <Animated.View style={[styles.esqueleto, { height: altura, width: largura, opacity: valor }]} accessibilityLabel="Carregando" />;
 }
 
-/** O círculo de quem está logado: a foto do perfil ou, sem ela, as iniciais. */
+/** O quadrado de quem está logado: a foto do perfil ou, sem ela, as iniciais. */
 export function Avatar({ tamanho = componentes.avatar }: { tamanho?: number }) {
   const styles = useEstilos(criarEstilos);
   const { usuario, foto } = useAuth();
-  const forma = { width: tamanho, height: tamanho, borderRadius: tamanho / 2 };
+  const forma = { width: tamanho, height: tamanho, borderRadius: raio.medio };
   return (
     <View style={[styles.avatar, forma]}>
       {foto ? (
@@ -160,64 +141,42 @@ export function Avatar({ tamanho = componentes.avatar }: { tamanho?: number }) {
 
 const iniciais = (nome: string) => nome.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 
-function saudacaoDaHora(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Bom dia,';
-  if (h < 18) return 'Boa tarde,';
-  return 'Boa noite,';   // o nome vem logo depois, na mesma linha
-}
-
 /**
- * Topo das abas. Em cima, a marca (o leão e o nome) e os botões de tema e de conta;
- * embaixo, a saudação com a data — ou o título da aba, nas outras telas.
+ * Topo das abas: a marca (leão em placa clara e CM PORT) numa linha fina, e o título grande da
+ * aba embaixo. `direita` recebe uma ação da aba, quando houver.
  */
-export function Saudacao({ titulo }: { titulo?: string }) {
+export function TopoDaAba({ titulo, apoio, direita, abaixo }: { titulo: string; apoio?: string; direita?: ReactNode; abaixo?: ReactNode }) {
   const styles = useEstilos(criarEstilos);
-  const router = useRouter();
-  const { usuario } = useAuth();
   const topo = useSafeAreaInsets().top;
-  // como a pessoa pediu para ser chamada (Minha conta) ou, sem isso, o primeiro nome
-  const primeiroNome = usuario?.apelido?.trim() || usuario?.nome.split(' ')[0];
-  const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-
   return (
-    <View style={[styles.saudacao, { paddingTop: topo + espaco[3] }]}>
-      <View style={styles.marcaLinha}>
-        <View style={styles.marca}>
-          <LogoPlaca tamanho={componentes.logoPlaca.topo} />
-          <Text style={styles.marcaNome} accessibilityRole="header">CM PORT</Text>
-        </View>
-        <BotaoTema />
-        <Toque onPress={() => router.push('/conta')} accessibilityRole="button" accessibilityLabel="Abrir minha conta">
-          <Avatar />
-        </Toque>
+    <View style={[styles.topo, { paddingTop: topo + espaco[3] }]}>
+      <View style={styles.marca}>
+        <LogoPlaca tamanho={componentes.logoPlaca.topo} />
+        <Text style={styles.marcaNome}>CM PORT</Text>
+        <View style={styles.topoDireita}>{direita}</View>
       </View>
-
-      {titulo ? (
-        <Text style={styles.saudacaoNome} numberOfLines={1}>{titulo}</Text>
-      ) : (
-        <View>
-          <Text style={styles.saudacaoNome} numberOfLines={1}>{saudacaoDaHora()}{primeiroNome ? ` ${primeiroNome}` : ''}</Text>
-          <Text style={styles.saudacaoOla}>{hoje.charAt(0).toUpperCase() + hoje.slice(1)}</Text>
-        </View>
-      )}
+      <View>
+        <Text style={styles.topoTitulo} numberOfLines={1} accessibilityRole="header">{titulo}</Text>
+        {apoio && <Text style={styles.topoApoio}>{apoio}</Text>}
+        {abaixo ? <View style={styles.topoAbaixo}>{abaixo}</View> : null}
+      </View>
     </View>
   );
 }
 
-/** Topo das telas internas: botão redondo de voltar, título e um espaço para ação à direita. */
+/** Topo das telas internas: botão de voltar, título e um espaço para ação à direita. */
 export function Cabecalho({ titulo, direita }: { titulo: string; direita?: ReactNode }) {
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
   const router = useRouter();
   const topo = useSafeAreaInsets().top;
   return (
-    <View style={[styles.cabecalho, { paddingTop: topo + espaco[3] }]}>
+    <View style={[styles.cabecalho, { paddingTop: topo + espaco[2] }]}>
       <Toque
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
         accessibilityRole="button"
         accessibilityLabel="Voltar"
-        style={styles.redondo}
+        style={styles.voltar}
       >
         <GlifoVoltar cor={cores.texto} tamanho={componentes.iconeCaixa.glifo} />
       </Toque>
@@ -228,70 +187,60 @@ export function Cabecalho({ titulo, direita }: { titulo: string; direita?: React
 }
 
 const estilosFixos = StyleSheet.create({
-  tela: { flex: 1 },
   logo: { width: '100%', height: '100%' },
 });
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  cartao: {
-    ...vidro(c), borderRadius: raio.grande, boxShadow: c.vidroSombra,
-    padding: componentes.cartao.respiro, overflow: 'hidden',
-  },
-  cartaoDestaque: { ...vidro(c, 'forte'), borderColor: c.azul, boxShadow: c.brilho },
-  fio: { position: 'absolute', top: 0, left: raio.grande, right: raio.grande, height: 1, backgroundColor: c.vidroFio },
-  logoPlaca: { backgroundColor: c.placa, borderWidth: 1, borderColor: c.vidroFio, boxShadow: c.brilho },
+  tela: { flex: 1, backgroundColor: c.fundo },
+  cartao: { ...vidro(c), borderRadius: componentes.cartao.raio, padding: componentes.cartao.respiro, overflow: 'hidden' },
+  cartaoDestaque: { ...vidro(c, 'forte'), borderColor: c.azul },
+  logoPlaca: { backgroundColor: c.placa },
 
   iconeCaixa: {
     width: componentes.iconeCaixa.tamanho, height: componentes.iconeCaixa.tamanho, borderRadius: componentes.iconeCaixa.raio,
     backgroundColor: c.azulSuave, alignItems: 'center', justifyContent: 'center',
   },
   iconeCaixaErro: { backgroundColor: c.erroSuave },
-  iconeCaixaSuave: { backgroundColor: c.linha },
+  iconeCaixaSuave: { backgroundColor: c.superficieForte },
 
   bloco: { gap: espaco[3] },
-  blocoCabeca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  blocoTitulo: { fontFamily: fontes.nome, fontSize: corpo.cabecalho, color: c.texto },
-  blocoAcao: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, color: c.azul },
-
-  numero: {
-    flex: 1, alignItems: 'center', gap: espaco[1], paddingVertical: espaco[3.5], paddingHorizontal: espaco[1],
-    ...vidro(c), borderRadius: raio.grande,
-  },
-  numeroErro: { borderColor: c.estadoOffline },
-  numeroValor: { fontFamily: fontes.nome, fontSize: corpo.titulo, lineHeight: entrelinha.titulo, color: c.texto },
-  numeroLegenda: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
+  blocoCabeca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: componentes.alvoDeToque - espaco[3] },
+  blocoTitulo: { ...fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
+  blocoAcaoArea: { minHeight: componentes.alvoDeToque - espaco[3], justifyContent: 'center' },
+  blocoAcao: { ...fontes.textoForte, fontSize: corpo.legenda, color: c.azul },
 
   pilula: {
-    flexDirection: 'row', alignItems: 'center', gap: espaco[1.5], borderRadius: raio.pilula, borderWidth: 1, borderColor: c.linha,
+    flexDirection: 'row', alignItems: 'center', gap: espaco[1.5], borderRadius: raio.pilula, borderWidth: 1, borderColor: c.vidroBorda,
     paddingHorizontal: espaco[2.5], paddingVertical: espaco[1],
   },
-  pilulaAzul: { borderColor: c.azul, backgroundColor: c.azulSuave },
+  pilulaOk: { borderColor: c.estadoOnline, backgroundColor: c.estadoOnlineSuave },
+  pilulaEspera: { borderColor: c.estadoEspera, backgroundColor: c.estadoEsperaSuave },
   pilulaErro: { borderColor: c.estadoOffline, backgroundColor: c.erroSuave },
   pilulaPonto: { width: componentes.selo.ponto, height: componentes.selo.ponto, borderRadius: componentes.selo.ponto / 2 },
-  pilulaTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.texto },
+  pilulaTexto: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.texto },
 
-  progresso: { height: componentes.medidor.altura, borderRadius: raio.pilula, backgroundColor: c.linha, overflow: 'hidden' },
+  progresso: { height: componentes.medidor.altura, borderRadius: raio.pilula, backgroundColor: c.superficieForte, overflow: 'hidden' },
   progressoCheio: { height: '100%', borderRadius: raio.pilula, ...aceso(c) },
+  progressoOk: { backgroundColor: c.estadoOnline },
 
-  esqueleto: { borderRadius: raio.grande, ...vidro(c) },
+  esqueleto: { borderRadius: componentes.cartao.raio, backgroundColor: c.superficie },
 
-  saudacao: { paddingHorizontal: espaco[5], paddingBottom: espaco[4], gap: espaco[4] },
-  marcaLinha: { flexDirection: 'row', alignItems: 'center', gap: espaco[2] },
-  marca: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: espaco[2.5] },
-  marcaNome: { fontFamily: fontes.nome, fontSize: corpo.nome, color: c.texto, letterSpacing: espaco[1] },
-  saudacaoOla: { fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave, marginTop: espaco[0.5] },
-  saudacaoNome: { fontFamily: fontes.nome, fontSize: corpo.titulo + espaco[1], lineHeight: entrelinha.destaque, color: c.texto },
-  avatar: {
-    width: componentes.avatar, height: componentes.avatar, borderRadius: componentes.avatar / 2, ...aceso(c),
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  topo: { paddingHorizontal: espaco[4], paddingBottom: espaco[4], gap: espaco[4] },
+  marca: { flexDirection: 'row', alignItems: 'center', gap: espaco[2.5], minHeight: componentes.alvoDeToque },
+  marcaNome: { flex: 1, ...fontes.nome, fontSize: corpo.legenda, color: c.texto, letterSpacing: espaco[1] },
+  topoDireita: { alignItems: 'flex-end' },
+  topoTitulo: { ...fontes.destaque, fontSize: corpo.destaque, lineHeight: entrelinha.destaque, color: c.texto, letterSpacing: -0.5 },
+  topoApoio: { ...fontes.texto, fontSize: corpo.base, color: c.textoSuave, marginTop: espaco[1] },
+  topoAbaixo: { marginTop: espaco[1] },
+
+  avatar: { backgroundColor: c.superficieForte, borderWidth: 1, borderColor: c.vidroBorda, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarTexto: { ...fontes.nome, color: c.texto },
+
+  cabecalho: {
+    flexDirection: 'row', alignItems: 'center', gap: espaco[2], paddingHorizontal: espaco[2], paddingBottom: espaco[2],
+    borderBottomWidth: 1, borderBottomColor: c.linha,
   },
-  avatarTexto: { fontFamily: fontes.nome, fontSize: corpo.base, color: c.sobreLuz },
-
-  cabecalho: { flexDirection: 'row', alignItems: 'center', gap: espaco[3], paddingHorizontal: espaco[4], paddingBottom: espaco[3] },
-  redondo: {
-    width: componentes.avatar, height: componentes.avatar, borderRadius: componentes.avatar / 2, ...vidro(c, 'forte'),
-    alignItems: 'center', justifyContent: 'center',
-  },
-  cabecalhoTitulo: { flex: 1, fontFamily: fontes.nome, fontSize: corpo.cabecalho, color: c.texto },
-  cabecalhoDireita: { minWidth: componentes.avatar, alignItems: 'flex-end' },
+  voltar: { width: componentes.alvoDeToque - espaco[1], height: componentes.alvoDeToque - espaco[1], borderRadius: raio.pilula, backgroundColor: c.superficie, alignItems: 'center', justifyContent: 'center', marginLeft: espaco[1] },
+  cabecalhoTitulo: { flex: 1, ...fontes.nome, fontSize: corpo.cabecalho, color: c.texto },
+  cabecalhoDireita: { minWidth: componentes.alvoDeToque, alignItems: 'flex-end', paddingRight: espaco[2] },
 });

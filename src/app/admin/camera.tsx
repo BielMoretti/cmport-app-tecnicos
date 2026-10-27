@@ -254,12 +254,11 @@ export default function FormularioDeCameraScreen() {
           {criadas.map((c, i) => (
             <Secao key={c.id} titulo={`${i + 1}. ${c.nome}`}>
               <View style={styles.estado}>
-                <Pilula texto={rotuloDaTransmissao(estados.get(c.id))} tom={estados.get(c.id) === 'online' ? 'azul' : 'suave'} />
+                <Pilula texto={rotuloDaTransmissao(estados.get(c.id))} tom={estados.get(c.id) === 'online' ? 'ok' : 'espera'} />
               </View>
               {c.rtmp_url && (
                 <Toque
                   onPress={() => { void copiarDaLista(c); }}
-                  brilho
                   accessibilityRole="button"
                   accessibilityLabel={`Copiar o endereço de ${c.nome}`}
                   style={[styles.endereco, copiadaId === c.id && styles.enderecoCopiado]}
@@ -399,12 +398,11 @@ export default function FormularioDeCameraScreen() {
               <>
                 {camera.ativo && (
                   <View style={styles.estado}>
-                    <Pilula texto={rotuloDaTransmissao(estados.get(camera.id))} tom={estados.get(camera.id) === 'online' ? 'azul' : 'suave'} />
+                    <Pilula texto={rotuloDaTransmissao(estados.get(camera.id))} tom={estados.get(camera.id) === 'online' ? 'ok' : 'espera'} />
                   </View>
                 )}
                 <Toque
                   onPress={() => { void copiarEndereco(camera.rtmp_url!); }}
-                  brilho
                   accessibilityRole="button"
                   accessibilityLabel="Copiar o endereço da câmera"
                   style={[styles.endereco, copiado && styles.enderecoCopiado]}
@@ -443,10 +441,10 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     padding: componentes.campo.respiroH, boxShadow: c.brilho,
   },
   enderecoCopiado: { borderColor: c.ciano },
-  enderecoTexto: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
-  enderecoDica: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginTop: espaco[1.5] },
-  enderecoDicaCopiado: { fontFamily: fontes.textoForte, color: c.azul },
+  enderecoTexto: { ...fontes.mono, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
+  enderecoDica: { ...fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginTop: espaco[1.5] },
+  enderecoDicaCopiado: { ...fontes.textoForte, color: c.azul },
   estado: { alignSelf: 'flex-start' },
-  resumo: { fontFamily: fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
-  resumoDica: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
+  resumo: { ...fontes.textoForte, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
+  resumoDica: { ...fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
 });

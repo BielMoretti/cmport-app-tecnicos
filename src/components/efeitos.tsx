@@ -21,7 +21,7 @@ export function useReduzirMovimento(): boolean {
   return reduzir;
 }
 
-/** Barra azul fina que corre de um lado ao outro enquanto os dados carregam. */
+/** Barra fina que corre de um lado ao outro enquanto os dados carregam. */
 export function BarraCarregando({ ativa }: { ativa: boolean }) {
   const { cores } = useTema();
   const reduzir = useReduzirMovimento();
@@ -53,7 +53,6 @@ export function BarraCarregando({ ativa }: { ativa: boolean }) {
             width: reduzir ? '100%' : trecho,
             height: componentes.barraCarregando.altura,
             backgroundColor: cores.azul,
-            boxShadow: cores.brilho,
             opacity: reduzir ? 0.6 : 1,
             transform: reduzir
               ? []
@@ -65,56 +64,26 @@ export function BarraCarregando({ ativa }: { ativa: boolean }) {
   );
 }
 
-/** Entrada única da lista: cada item sobe e aparece, um depois do outro. */
-export function Entrada({ ordem, children }: { ordem: number; children: ReactNode }) {
-  const reduzir = useReduzirMovimento();
-  const valor = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(valor, {
-      toValue: 1,
-      duration: 320,
-      delay: Math.min(ordem, 8) * 55,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: NATIVO,
-    }).start();
-  }, [ordem, valor]);
-
-  if (reduzir) return <>{children}</>;
-
-  return (
-    <Animated.View
-      style={{
-        opacity: valor,
-        transform: [{ translateY: valor.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  );
-}
-
-/** Área tocável que afunda de leve e acende o brilho azul enquanto pressionada. */
+/** Área tocável que afunda de leve e clareia enquanto pressionada. */
 export function Toque({
-  children, style, brilho = false, ...props
-}: Omit<PressableProps, 'style' | 'children'> & { children: ReactNode; style?: StyleProp<ViewStyle>; brilho?: boolean }) {
-  const { cores } = useTema();
+  children, style, ...props
+}: Omit<PressableProps, 'style' | 'children'> & { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const reduzir = useReduzirMovimento();
   const escala = useRef(new Animated.Value(1)).current;
   const [pressionado, setPressionado] = useState(false);
 
   const animar = (para: number) => {
     if (reduzir) return;
-    Animated.spring(escala, { toValue: para, speed: 40, bounciness: 4, useNativeDriver: NATIVO }).start();
+    Animated.spring(escala, { toValue: para, speed: 40, bounciness: 0, useNativeDriver: NATIVO }).start();
   };
 
   return (
     <Pressable
       {...props}
-      onPressIn={e => { setPressionado(true); animar(0.975); props.onPressIn?.(e); }}
+      onPressIn={e => { setPressionado(true); animar(0.98); props.onPressIn?.(e); }}
       onPressOut={e => { setPressionado(false); animar(1); props.onPressOut?.(e); }}
     >
-      <Animated.View style={[style, brilho && pressionado && { boxShadow: cores.brilho }, { transform: [{ scale: escala }] }]}>
+      <Animated.View style={[style, pressionado && styles.pressionado, { transform: [{ scale: escala }] }]}>
         {children}
       </Animated.View>
     </Pressable>
@@ -143,4 +112,5 @@ export function Pulso({ cor, tamanho = 8 }: { cor: string; tamanho?: number }) {
 
 const styles = StyleSheet.create({
   barra: { height: componentes.barraCarregando.altura, width: '100%', overflow: 'hidden' },
+  pressionado: { opacity: 0.85 },
 });

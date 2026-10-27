@@ -1,102 +1,70 @@
-import { useEffect, useRef, type ReactNode } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { Platform, useWindowDimensions, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GlifoAdmin, GlifoCameraAba, GlifoInicio, GlifoPoste } from '@/components/arte';
-import { NATIVO, useReduzirMovimento } from '@/components/efeitos';
+import { GlifoCameraAba, GlifoConta, GlifoInicio, GlifoInstalar } from '@/components/arte';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEstilos, useTema } from '@/contexts/TemaContext';
+import { useTema } from '@/contexts/TemaContext';
 import { ehAdministrador } from '@/lib/acesso';
-import { componentes, corpo, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
+import { componentes, corpo, espaco, fontes, raio } from '@/lib/tema';
 
-const ABAS: Record<string, { titulo: string; icone: (cor: string) => ReactNode }> = {
-  index: { titulo: 'Início', icone: cor => <GlifoInicio cor={cor} tamanho={componentes.abas.icone} /> },
-  cameras: { titulo: 'Câmeras', icone: cor => <GlifoCameraAba cor={cor} tamanho={componentes.abas.icone} /> },
-  postes: { titulo: 'Postes', icone: cor => <GlifoPoste cor={cor} tamanho={componentes.abas.icone} /> },
-  admin: { titulo: 'Gestão', icone: cor => <GlifoAdmin cor={cor} tamanho={componentes.abas.icone} /> },
-};
+const icone = (Glifo: (p: { cor: string; tamanho: number }) => ReactNode) =>
+  ({ color }: { color: ColorValue }) => <Glifo cor={String(color)} tamanho={componentes.abas.icone} />;
 
-/** Uma aba: a ativa ganha um fundo azul que cresce por trás. */
-function Aba({ nome, ativa, onPress }: { nome: string; ativa: boolean; onPress: () => void }) {
-  const styles = useEstilos(criarEstilos);
-  const { cores } = useTema();
-  const reduzir = useReduzirMovimento();
-  const valor = useRef(new Animated.Value(ativa ? 1 : 0)).current;
-  useEffect(() => {
-    if (reduzir) { valor.setValue(ativa ? 1 : 0); return; }
-    Animated.spring(valor, { toValue: ativa ? 1 : 0, speed: 18, bounciness: 8, useNativeDriver: NATIVO }).start();
-  }, [ativa, reduzir, valor]);
-  const aba = ABAS[nome];
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: ativa }}
-      accessibilityLabel={aba.titulo}
-      style={styles.aba}
-    >
-      <Animated.View style={[styles.abaFundo, { opacity: valor, transform: [{ scale: valor.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]} />
-      {aba.icone(ativa ? cores.azul : cores.textoSuave)}
-      <Text style={[styles.abaTexto, ativa && styles.abaTextoAtiva]}>{aba.titulo}</Text>
-    </Pressable>
-  );
-}
-
+/**
+ * Abas por tarefa: Início (o que fazer agora), Instalar (condomínio, poste, câmeras),
+ * Câmeras (tudo o que está instalado, por poste) e Conta. No celular, pílula flutuante embaixo;
+ * em tela larga de Android, trilho na lateral.
+ */
 export default function AbasLayout() {
   const { usuario } = useAuth();
-  const styles = useEstilos(criarEstilos);
+  const { cores } = useTema();
   const base = useSafeAreaInsets().bottom;
   const admin = ehAdministrador(usuario?.role);
+  // tablet Android: trilho na lateral, como pede o Material. iPhone deitado continua com a barra de abas do iOS
+  const largura = useWindowDimensions().width;
+  const largo = Platform.OS !== 'ios' && largura >= componentes.abas.larguraDoTrilho;
 
   return (
     <Tabs
-      screenOptions={{ headerShown: false, sceneStyle: styles.cena }}
-      // barra flutuante em pílula, no lugar da barra padrão
-      tabBar={({ state, navigation }) => (
-        <View style={[styles.barraArea, { paddingBottom: base + componentes.abas.margem }]} pointerEvents="box-none">
-          <View style={styles.barra} accessibilityRole="tablist">
-            {state.routes.filter(r => ABAS[r.name]).map(rota => {
-              const ativa = state.routes[state.index]?.key === rota.key;
-              return (
-                <Aba
-                  key={rota.key}
-                  nome={rota.name}
-                  ativa={ativa}
-                  onPress={() => {
-                    const evento = navigation.emit({ type: 'tabPress', target: rota.key, canPreventDefault: true });
-                    if (!ativa && !evento.defaultPrevented) navigation.navigate(rota.name, rota.params);
-                  }}
-                />
-              );
-            })}
-          </View>
-        </View>
-      )}
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: { backgroundColor: cores.fundo },
+        tabBarActiveTintColor: cores.azul,
+        tabBarInactiveTintColor: cores.textoSuave,
+        tabBarPosition: largo ? 'left' : 'bottom',
+        tabBarVariant: largo ? 'material' : 'uikit',
+        tabBarLabelPosition: largo ? 'below-icon' : undefined,
+        tabBarStyle: largo
+          ? { backgroundColor: cores.flutuante, borderRightColor: cores.vidroBorda, borderRightWidth: 1, width: componentes.abas.larguraDoTrilhoAberto }
+          // celular: pílula que flutua acima do fim da tela; as telas deixam `abas.reserva` livre no fim
+          : {
+            position: 'absolute',
+            left: componentes.abas.margem,
+            right: componentes.abas.margem,
+            bottom: base + componentes.abas.margem,
+            height: componentes.abas.altura,
+            borderRadius: raio.pilula,
+            backgroundColor: cores.flutuante,
+            borderTopWidth: 0,
+            paddingTop: espaco[1.5],
+            paddingBottom: espaco[1.5],
+            paddingHorizontal: espaco[1.5],
+          },
+        // a aba ativa ganha um fundo em pílula (no trilho, o próprio Material desenha o dele)
+        tabBarActiveBackgroundColor: largo ? undefined : cores.azulSuave,
+        tabBarItemStyle: largo ? undefined : { borderRadius: raio.pilula, overflow: 'hidden' },
+        tabBarLabelStyle: { ...fontes.textoForte, fontSize: corpo.micro },
+      }}
     >
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="cameras" />
-      <Tabs.Screen name="postes" />
-      {/* A aba de gestão só existe para quem gerencia câmeras (ver lib/acesso.ts) */}
+      <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: icone(GlifoInicio) }} />
+      {/* Instalar só existe para quem gerencia câmeras (ver lib/acesso.ts) */}
       <Tabs.Protected guard={admin}>
-        <Tabs.Screen name="admin" />
+        <Tabs.Screen name="instalar" options={{ title: 'Instalar', tabBarIcon: icone(GlifoInstalar) }} />
       </Tabs.Protected>
+      <Tabs.Screen name="cameras" options={{ title: 'Câmeras', tabBarIcon: icone(GlifoCameraAba) }} />
+      <Tabs.Screen name="conta" options={{ title: 'Conta', tabBarIcon: icone(GlifoConta) }} />
     </Tabs>
   );
 }
-
-const criarEstilos = (c: Paleta) => StyleSheet.create({
-  barraArea: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', paddingHorizontal: componentes.abas.margem },
-  barra: {
-    flexDirection: 'row', width: '100%', maxWidth: componentes.abas.larguraMaxima, height: componentes.abas.altura,
-    ...vidro(c, 'flutuante'), borderRadius: raio.pilula,
-    padding: espaco[1.5], boxShadow: c.vidroSombra,
-  },
-  // o fundo é o da moldura da navegação (ver app/_layout.tsx)
-  cena: { backgroundColor: 'transparent' },
-  aba: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: espaco[0.5], borderRadius: raio.pilula },
-  abaFundo: { ...StyleSheet.absoluteFill, borderRadius: raio.pilula, backgroundColor: c.azulSuave, borderWidth: 1, borderColor: c.vidroBorda },
-  abaTexto: { fontFamily: fontes.textoForte, fontSize: corpo.micro, color: c.textoSuave },
-  abaTextoAtiva: { color: c.azul },
-});
