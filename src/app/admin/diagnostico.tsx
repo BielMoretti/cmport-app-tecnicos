@@ -13,7 +13,7 @@ import { estadoDe, ROTULO_DA_SAUDE, ROTULO_DO_ESTADO, type Estado } from '@/lib/
 import { componentes, corpo, espaco, fontes, type Paleta } from '@/lib/tema';
 import type { Camera } from '@/lib/types';
 
-const TOM_DO_ESTADO: Record<Estado, Tom> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
+const TOM_DO_ESTADO: Record<Estado, Tom> = { online: 'ok', offline: 'erro', desconhecido: 'suave' };
 type Filtro = 'todas' | 'problemas';
 
 const emGb = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(1).replace('.', ',')} GB`;
@@ -147,8 +147,8 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   cartaoPressionado: { borderColor: c.azul, boxShadow: c.brilho },
   cabeca: { flexDirection: 'row', alignItems: 'center', gap: espaco[3] },
   cabecaTexto: { flex: 1, gap: espaco[0.5] },
-  nome: { fontFamily: fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
+  nome: { ...fontes.nome, fontSize: corpo.nomeGrande, color: c.texto },
   apagado: { color: c.textoSuave },
-  local: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
-  detalhe: { fontFamily: fontes.texto, fontSize: corpo.legenda, color: c.textoSuave },
+  local: { ...fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
+  detalhe: { ...fontes.texto, fontSize: corpo.legenda, color: c.textoSuave },
 });

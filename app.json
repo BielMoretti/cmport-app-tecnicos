@@ -6,7 +6,7 @@
     "version": "0.1.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "android": {
       "package": "br.com.cmport.tecnico",
       "adaptiveIcon": {

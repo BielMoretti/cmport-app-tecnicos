@@ -93,12 +93,12 @@ export default function MarcaDagua({ tamanho = 'grande' }: { tamanho?: 'grande' 
 const styles = StyleSheet.create({
   recorte: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
   fantasma: {
-    fontFamily: fontes.textoForte, color: palco.marcaEspalhada, textShadowColor: palco.marcaEspalhadaSombra,
+    ...fontes.textoForte, color: palco.marcaEspalhada, textShadowColor: palco.marcaEspalhadaSombra,
     textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1,
   },
   // clara com sombra escura: lê tanto em cena escura quanto em parede branca
   assinatura: {
-    position: 'absolute', fontFamily: fontes.textoForte, color: palco.marca, textShadowColor: palco.marcaSombra,
+    position: 'absolute', ...fontes.textoForte, color: palco.marca, textShadowColor: palco.marcaSombra,
     textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
   },
   cantoFixo: { top: componentes.marcaDagua.margem / 2, left: componentes.marcaDagua.margem / 2 },

@@ -1,22 +1,22 @@
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
-import { Cabecalho } from '@/components/ui';
-import { GlifoCamera, Horizonte, Varredura, Veu } from '@/components/arte';
 import { BarraCarregando } from '@/components/efeitos';
-import { Botao, formatarData, LinhaInfo, Mensagem, Secao, Selo, Total, type Tom } from '@/components/formulario';
+import { Botao, formatarData, LinhaInfo, Mensagem, Secao } from '@/components/formulario';
+import { Grupo, Linha } from '@/components/lista';
+import { estadoDaPorta, PainelDePortas, resumoDasPortas, ROTULO_DA_PORTA } from '@/components/portas';
+import { Cabecalho } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { ehAdministrador } from '@/lib/acesso';
+import { porCriacao } from '@/lib/agrupar';
 import { api, ApiError } from '@/lib/api';
-import { estadoDe, ROTULO_DO_ESTADO, type Estado } from '@/lib/saude';
-import { componentes, corpo, entrelinha, espaco, fontes, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, entrelinha, espaco, fontes, vidro, type Paleta } from '@/lib/tema';
 import type { Camera, Poste } from '@/lib/types';
 
-const TOM_DO_ESTADO: Record<Estado, Tom> = { online: 'azul', offline: 'erro', desconhecido: 'suave' };
 
-/** Painel individual de um poste: o que ele tem, como está e quando foi mexido. */
+/** Um poste: o painel de portas grande, a lista das câmeras e os dados do poste. */
 export default function PainelDoPosteScreen() {
   const router = useRouter();
   const { usuario } = useAuth();
@@ -40,9 +40,9 @@ export default function PainelDoPosteScreen() {
         api<Camera[]>(`/cameras/por-poste/${posteId}`),
       ]);
       setPoste(p);
-      setCameras(c);
+      setCameras([...c].sort(porCriacao));
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar este poste. Puxe a tela para tentar de novo.');
+      setErro(e instanceof ApiError ? e.message : 'Sem conexão com o servidor. Puxe a tela para tentar de novo.');
     }
   }, [posteId]);
 
@@ -61,40 +61,62 @@ export default function PainelDoPosteScreen() {
     setAtualizando(false);
   }, [carregar]);
 
-  const conhecidos = cameras.filter(c => estadoDe(c) !== 'desconhecido');
-  const online = conhecidos.filter(c => estadoDe(c) === 'online').length;
-  const aoVivo = cameras.filter(c => c.tipo_conexao === 'RTMP_ISOLADA').length;
+  const abrirCamera = (cameraId: number) => router.push({ pathname: '/camera/[id]', params: { id: String(cameraId) } });
+  const estados = cameras.map(c => estadoDaPorta(c));
 
   return (
-    <ScrollView
-      style={styles.tela}
-      contentContainerStyle={styles.conteudo}
-      refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
-    >
-      <Cabecalho titulo={'Poste'} />
+    <View style={styles.tela}>
+      <Cabecalho titulo={poste?.nome ?? 'Poste'} />
       <BarraCarregando ativa={carregando} />
-
-      {/* mesma silhueta do condomínio a que o poste pertence */}
-      <View style={styles.faixa}>
-        {poste && <Horizonte semente={poste.condominio_id} style={StyleSheet.absoluteFill} />}
-        <Varredura altura={componentes.faixa.altura} />
-        <Veu cor={cores.veu} inicio={0.3} />
-        <View style={styles.faixaTexto}>
-          <Text style={styles.nome} numberOfLines={2}>{poste?.nome ?? ' '}</Text>
-          {poste?.condominio_nome && <Text style={styles.condominio} numberOfLines={1}>{poste.condominio_nome}</Text>}
-        </View>
-      </View>
-
-      <View style={styles.corpo}>
+      <ScrollView
+        contentContainerStyle={styles.conteudo}
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.azul} />}
+      >
         {erro && <Mensagem texto={erro} tom="erro" />}
 
         {poste && (
           <>
-            <View style={styles.totais}>
-              <Total valor={String(cameras.length)} legenda={cameras.length === 1 ? 'câmera' : 'câmeras'} />
-              <Total valor={conhecidos.length > 0 ? `${online}/${conhecidos.length}` : '–'} legenda="online" />
-              <Total valor={String(aoVivo)} legenda="ao vivo no app" />
+            <View style={styles.painel}>
+              {poste.condominio_nome && <Text style={styles.condominio}>{poste.condominio_nome}</Text>}
+              <PainelDePortas cameras={cameras} grande onPressPorta={abrirCamera} rotulo={poste.nome} />
+              <Text style={styles.resumo}>{cameras.length ? resumoDasPortas(estados) : 'Nenhuma câmera neste poste'}</Text>
             </View>
+
+            {cameras.length > 0 && (
+              <Grupo>
+                {cameras.map((c, i) => (
+                  <Linha
+                    key={c.id}
+                    estado={estados[i]}
+                    numero={i + 1}
+                    titulo={c.nome}
+                    detalhe={`${ROTULO_DA_PORTA[estados[i]]} · ${c.tipo_conexao === 'RTMP_ISOLADA' ? 'envia o vídeo' : `gravador, canal ${c.canal ?? '?'}`}`}
+                    onPress={() => abrirCamera(c.id)}
+                    ultima={i === cameras.length - 1}
+                  />
+                ))}
+              </Grupo>
+            )}
+
+            {admin && (
+              <View style={styles.acoes}>
+                <Botao
+                  titulo="Adicionar câmeras neste poste"
+                  onPress={() => router.push({
+                    pathname: '/instalar/[id]',
+                    params: {
+                      id: String(poste.condominio_id), nome: poste.condominio_nome ?? 'Condomínio',
+                      passo: '3', posteId: String(poste.id), posteNome: poste.nome,
+                    },
+                  })}
+                />
+                <Botao
+                  titulo="Editar este poste"
+                  variante="secundario"
+                  onPress={() => router.push({ pathname: '/admin/poste', params: { condominioId: String(poste.condominio_id), id: String(poste.id) } })}
+                />
+              </View>
+            )}
 
             <Secao titulo="Sobre este poste">
               <View>
@@ -104,82 +126,18 @@ export default function PainelDoPosteScreen() {
                 <LinhaInfo rotulo="Observação" valor={poste.observacao ?? 'Nenhuma'} />
               </View>
             </Secao>
-
-            <Secao titulo="Câmeras">
-              {cameras.length === 0 ? (
-                <Mensagem texto="Este poste ainda não tem câmera cadastrada." />
-              ) : (
-                <View>
-                  {cameras.map(c => {
-                    const estado = estadoDe(c);
-                    return (
-                      <Pressable
-                        key={c.id}
-                        onPress={() => router.push({ pathname: '/camera/[id]', params: { id: String(c.id) } })}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Abrir a câmera ${c.nome}`}
-                        style={({ pressed }) => [styles.camera, pressed && styles.cameraPressionada]}
-                      >
-                        <GlifoCamera cor={cores.azul} />
-                        <View style={styles.cameraTexto}>
-                          <Text style={styles.cameraNome} numberOfLines={1}>{c.nome}</Text>
-                          <Text style={styles.cameraTipo}>
-                            {c.tipo_conexao === 'RTMP_ISOLADA' ? 'Transmite ao vivo' : `Gravador, canal ${c.canal ?? '?'}`}
-                          </Text>
-                        </View>
-                        <Selo texto={ROTULO_DO_ESTADO[estado]} tom={TOM_DO_ESTADO[estado]} />
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-            </Secao>
-
-            {admin && (
-              <Secao titulo="Administração">
-                <Botao
-                  titulo="Editar este poste"
-                  variante="secundario"
-                  onPress={() => router.push({
-                    pathname: '/admin/poste',
-                    params: { condominioId: String(poste.condominio_id), id: String(poste.id) },
-                  })}
-                />
-                <Botao
-                  titulo="Adicionar câmera neste poste"
-                  variante="secundario"
-                  onPress={() => router.push({
-                    pathname: '/admin/camera',
-                    params: { condominioId: String(poste.condominio_id), posteId: String(poste.id) },
-                  })}
-                />
-              </Secao>
-            )}
           </>
         )}
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1 },
-  conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', paddingBottom: espaco[10] },
-  faixa: {
-    height: componentes.faixa.altura, justifyContent: 'flex-end', overflow: 'hidden', marginHorizontal: espaco[5],
-    borderRadius: raio.grande, backgroundColor: c.superficie, borderWidth: 1, borderColor: c.linha, boxShadow: c.brilho,
-  },
-  faixaTexto: { paddingHorizontal: espaco[4], paddingBottom: espaco[2], gap: espaco[0.5] },
-  nome: { fontFamily: fontes.nome, fontSize: corpo.destaque, lineHeight: entrelinha.destaque, color: c.texto },
-  condominio: { fontFamily: fontes.texto, fontSize: corpo.base, color: c.textoSuave },
-  corpo: { paddingHorizontal: espaco[5], paddingTop: espaco[4], gap: espaco[6] },
-  totais: { flexDirection: 'row', gap: espaco[2] },
-  camera: {
-    flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin,
-    paddingVertical: espaco[3], borderBottomWidth: 1, borderBottomColor: c.linha,
-  },
-  cameraPressionada: { backgroundColor: c.azulSuave },
-  cameraTexto: { flex: 1, gap: espaco[0.5] },
-  cameraNome: { fontFamily: fontes.textoForte, fontSize: corpo.nome, color: c.texto },
-  cameraTipo: { fontFamily: fontes.texto, fontSize: corpo.legenda, color: c.textoSuave },
+  conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[12], gap: espaco[6] },
+  painel: { ...vidro(c), borderRadius: componentes.cartao.raio, padding: espaco[4], gap: espaco[3] },
+  condominio: { ...fontes.textoForte, fontSize: corpo.legenda, color: c.textoSuave },
+  resumo: { ...fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.texto },
+  acoes: { gap: espaco[3] },
 });

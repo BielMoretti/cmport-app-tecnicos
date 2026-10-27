@@ -230,29 +230,29 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
     borderRadius: raio.grande, boxShadow: c.vidroSombra, padding: espaco[6], gap: espaco[4], overflow: 'hidden',
   },
   fio: { position: 'absolute', top: 0, left: raio.grande, right: raio.grande, height: 1, backgroundColor: c.vidroFio },
-  titulo: { fontFamily: fontes.nome, fontSize: corpo.cabecalho, lineHeight: entrelinha.titulo, color: c.texto },
-  apoio: { fontFamily: fontes.texto, fontSize: corpo.legenda, lineHeight: entrelinha.base, color: c.textoSuave },
+  titulo: { ...fontes.nome, fontSize: corpo.cabecalho, lineHeight: entrelinha.titulo, color: c.texto },
+  apoio: { ...fontes.texto, fontSize: corpo.legenda, lineHeight: entrelinha.base, color: c.textoSuave },
 
   horas: { flexDirection: 'row', gap: espaco[3] },
   campoCaixa: { flex: 1 },
-  rotulo: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginBottom: espaco[1.5] },
+  rotulo: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginBottom: espaco[1.5] },
   campo: {
-    ...vidro(c), borderRadius: componentes.campo.raio, fontFamily: fontes.nome, fontSize: corpo.titulo, color: c.texto,
+    ...vidro(c), borderRadius: componentes.campo.raio, ...fontes.nome, fontSize: corpo.titulo, color: c.texto,
     textAlign: 'center', paddingVertical: componentes.campo.respiroV, fontVariant: ['tabular-nums'], width: '100%',
   },
 
   atalhos: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: espaco[2] },
-  rotuloSolto: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginRight: espaco[1] },
+  rotuloSolto: { ...fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave, marginRight: espaco[1] },
   chip: {
     borderRadius: raio.pilula, ...vidro(c), paddingHorizontal: espaco[3], minHeight: componentes.chip.altura,
     alignItems: 'center', justifyContent: 'center',
   },
   chipAtivo: { ...aceso(c), borderColor: c.luz },
-  chipTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
+  chipTexto: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
   chipTextoAtivo: { color: c.sobreLuz },
 
   andamento: { gap: espaco[2.5] },
-  andamentoTexto: { fontFamily: fontes.textoForte, fontSize: corpo.legenda, lineHeight: entrelinha.base, color: c.texto, fontVariant: ['tabular-nums'] },
+  andamentoTexto: { ...fontes.textoForte, fontSize: corpo.legenda, lineHeight: entrelinha.base, color: c.texto, fontVariant: ['tabular-nums'] },
   acoes: { flexDirection: 'row', gap: espaco[3], marginTop: espaco[1] },
   acao: { flex: 1 },
 });
