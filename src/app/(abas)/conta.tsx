@@ -2,25 +2,23 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Constants from 'expo-constants';
 
-import { BarraCarregando } from '@/components/efeitos';
-import { Botao, confirmar, LinhaInfo, Mensagem, Opcoes, Secao } from '@/components/formulario';
-import { Toque } from '@/components/efeitos';
-import { Avatar, Cabecalho, Cartao } from '@/components/ui';
+import { BarraCarregando, Toque } from '@/components/efeitos';
+import { Botao, confirmar, LinhaInfo, Mensagem, Secao } from '@/components/formulario';
+import { Avatar, Cartao, TopoDaAba } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEstilos, useTema } from '@/contexts/TemaContext';
+import { useEstilos } from '@/contexts/TemaContext';
 import { NOME_DO_PAPEL } from '@/lib/acesso';
 import { ApiError } from '@/lib/api';
 import { apagarFoto, escolherFoto, salvarFoto } from '@/lib/foto';
 import { buscarPerfil, type Perfil } from '@/lib/perfil';
-import { componentes, corpo, entrelinha, espaco, fontes, temas, type Modo, type Paleta } from '@/lib/tema';
+import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
 
 /**
- * Minha conta: quem está logado, a foto (guardada neste aparelho), a aparência do app e o sair.
+ * Conta: quem está logado, a foto (guardada neste aparelho) e o sair.
  * Nome e senha são os da dash e se mudam lá: a API dos instaladores só lê o cadastro.
  */
 export default function ContaScreen() {
   const { usuario, logout, foto, definirFoto } = useAuth();
-  const { modo, definir } = useTema();
   const styles = useEstilos(criarEstilos);
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -84,9 +82,10 @@ export default function ContaScreen() {
 
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
-      <Cabecalho titulo={'Minha conta'} />
       <BarraCarregando ativa={carregando} />
-      <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.rolagem} keyboardShouldPersistTaps="handled">
+        <TopoDaAba titulo="Conta" />
+        <View style={styles.conteudo}>
         {/* quem é */}
         <Cartao style={styles.cartaoDeQuem}>
           <Toque onPress={() => { void trocarFoto(); }} disabled={!perfil || mexendoNaFoto} accessibilityRole="button" accessibilityLabel="Trocar a foto do perfil">
@@ -115,15 +114,6 @@ export default function ContaScreen() {
 
         {erroDeCarga && <Mensagem texto={erroDeCarga} tom="erro" />}
 
-        <Secao titulo="Aparência">
-          <Opcoes<Modo>
-            rotulo="Tema do aplicativo"
-            valor={modo}
-            opcoes={temas.map(t => ({ valor: t.valor, rotulo: t.rotulo }))}
-            onChange={definir}
-          />
-        </Secao>
-
         <Secao titulo="Nome e senha">
           <Mensagem texto="São os mesmos da dash e se mudam lá, em Minha conta. Este app só lê o seu cadastro." />
           <Botao titulo="Abrir a dash" variante="secundario" onPress={() => { void Linking.openURL('https://dash.cmport.com.br'); }} />
@@ -137,6 +127,7 @@ export default function ContaScreen() {
         </Secao>
 
         <Botao titulo="Sair da conta" variante="perigo" onPress={() => { void sair(); }} />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -144,12 +135,13 @@ export default function ContaScreen() {
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   tela: { flex: 1 },
-  conteudo: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', padding: espaco[4], paddingBottom: espaco[10], gap: espaco[6] },
+  rolagem: { width: '100%', maxWidth: componentes.conteudo.larguraMaxima, alignSelf: 'center', paddingBottom: componentes.abas.reserva },
+  conteudo: { paddingHorizontal: espaco[4], gap: espaco[6] },
   cartaoDeQuem: { flexDirection: 'row', alignItems: 'center', gap: espaco[4] },
   acoesDaFoto: { flexDirection: 'row', gap: espaco[3], marginTop: -espaco[3] },
   acaoDaFoto: { flex: 1 },
   quemTexto: { flex: 1, gap: espaco[0.5] },
-  nome: { fontFamily: fontes.nome, fontSize: corpo.cabecalho, lineHeight: entrelinha.titulo, color: c.texto },
-  apoio: { fontFamily: fontes.texto, fontSize: corpo.legenda, color: c.textoSuave },
-  papel: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.azul, marginTop: espaco[0.5] },
+  nome: { ...fontes.nome, fontSize: corpo.cabecalho, lineHeight: entrelinha.titulo, color: c.texto },
+  apoio: { ...fontes.texto, fontSize: corpo.legenda, color: c.textoSuave },
+  papel: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, marginTop: espaco[0.5] },
 });

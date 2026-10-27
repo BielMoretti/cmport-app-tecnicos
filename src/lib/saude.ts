@@ -15,8 +15,8 @@ export function estadoDe(camera: Pick<Camera, 'online'>): Estado {
 }
 
 export const ROTULO_DO_ESTADO: Record<Estado, string> = {
-  online: 'Online',
-  offline: 'Offline',
+  online: 'Transmitindo',
+  offline: 'Fora do ar',
   desconhecido: 'Sem informação',
 };
 

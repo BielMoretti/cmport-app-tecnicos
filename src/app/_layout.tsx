@@ -2,24 +2,30 @@ import { ActivityIndicator, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
-import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans/600SemiBold';
-import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
+import { AtkinsonHyperlegibleNext_400Regular } from '@expo-google-fonts/atkinson-hyperlegible-next/400Regular';
+import { AtkinsonHyperlegibleNext_600SemiBold } from '@expo-google-fonts/atkinson-hyperlegible-next/600SemiBold';
+import { AtkinsonHyperlegibleNext_700Bold } from '@expo-google-fonts/atkinson-hyperlegible-next/700Bold';
+import { AtkinsonHyperlegibleNext_800ExtraBold } from '@expo-google-fonts/atkinson-hyperlegible-next/800ExtraBold';
+import { AtkinsonHyperlegibleMono_500Medium } from '@expo-google-fonts/atkinson-hyperlegible-mono/500Medium';
+import { AtkinsonHyperlegibleMono_700Bold } from '@expo-google-fonts/atkinson-hyperlegible-mono/700Bold';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { TemaProvider, useTema } from '@/contexts/TemaContext';
 import { ehAdministrador } from '@/lib/acesso';
 import { Tela } from '@/components/ui';
-import { corpo, fontes, temaEscuro } from '@/lib/tema';
+import { corpo, fontes } from '@/lib/tema';
 
 function Rotas() {
   const { usuario, carregando } = useAuth();
-  const { cores, modo } = useTema();
+  const { cores } = useTema();
   // Se a fonte falhar, segue com a do sistema em vez de travar na tela de espera
   const [fontesProntas, erroFontes] = useFonts({
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
+    AtkinsonHyperlegibleNext_400Regular,
+    AtkinsonHyperlegibleNext_600SemiBold,
+    AtkinsonHyperlegibleNext_700Bold,
+    AtkinsonHyperlegibleNext_800ExtraBold,
+    AtkinsonHyperlegibleMono_500Medium,
+    AtkinsonHyperlegibleMono_700Bold,
   });
 
   if (carregando || (!fontesProntas && !erroFontes)) {
@@ -32,14 +38,13 @@ function Rotas() {
 
   return (
     <>
-      <StatusBar style={temaEscuro(modo) ? 'light' : 'dark'} />
+      <StatusBar style="light" />
       <Stack
-        // o fundo com as luzes é desenhado aqui, uma vez, atrás de cada tela
         screenLayout={({ children }) => <Tela>{children}</Tela>}
         screenOptions={{
           headerStyle: { backgroundColor: cores.fundo },
           headerTintColor: cores.texto,
-          headerTitleStyle: { fontFamily: fontes.nome, fontSize: corpo.cabecalho },
+          headerTitleStyle: { ...fontes.nome, fontSize: corpo.cabecalho },
           headerShadowVisible: false,
           headerShown: false,   // cada tela desenha o próprio topo (components/ui.tsx)
           headerBackButtonDisplayMode: 'minimal',
@@ -51,11 +56,11 @@ function Rotas() {
           <Stack.Screen name="condominio/[id]" options={{ title: 'Condomínio' }} />
           <Stack.Screen name="poste/[id]" options={{ title: 'Poste' }} />
           <Stack.Screen name="camera/[id]" options={{ title: 'Câmera' }} />
-          <Stack.Screen name="conta" options={{ title: 'Minha conta' }} />
         </Stack.Protected>
 
-        {/* Telas de administração: nem a rota existe para quem é morador */}
+        {/* Telas de administração e de instalação: só para quem gerencia câmeras */}
         <Stack.Protected guard={ehAdministrador(usuario?.role)}>
+          <Stack.Screen name="instalar/[id]" options={{ title: 'Instalar' }} />
           <Stack.Screen name="admin/condominio/[id]" options={{ title: 'Administrar' }} />
           <Stack.Screen name="admin/poste" options={{ title: 'Poste' }} />
           <Stack.Screen name="admin/camera" options={{ title: 'Câmera' }} />

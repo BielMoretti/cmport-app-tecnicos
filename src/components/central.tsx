@@ -1,36 +1,19 @@
-import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Pulso } from '@/components/efeitos';
 import MarcaDagua from '@/components/MarcaDagua';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { urlAbsoluta } from '@/lib/config';
 import { estadoDe, type Estado } from '@/lib/saude';
-import { componentes, corpo, entrelinha, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
+import { componentes, corpo, espaco, fontes, palco, raio, type Paleta } from '@/lib/tema';
 import type { Camera } from '@/lib/types';
 
-/** Peças da Central: a parede de câmeras, a faixa de estado, os alertas e o relógio. */
+/** Peças de acompanhamento: a imagem de cada câmera, a faixa de estado e o medidor de espaço. */
 
 const codigoDaCamera = (id: number) => `CAM ${String(id).padStart(2, '0')}`;
 
-/** Relógio da central — hora do aparelho, atualizada a cada segundo. */
-export function Relogio() {
-  const styles = useEstilos(criarEstilos);
-  const [agora, setAgora] = useState(() => new Date());
-  useEffect(() => {
-    const t = setInterval(() => setAgora(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <Text style={styles.relogio} accessibilityLabel="Hora atual">
-      {agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-    </Text>
-  );
-}
-
 /**
- * Um monitor da parede: a imagem mais recente da câmera (o servidor renova a cada
- * ~30 s), com o código, o nome e o estado por cima — como numa central de CFTV.
+ * A imagem mais recente da câmera (o servidor renova a cada ~30 s), com o código, o nome e o
+ * estado por cima.
  */
 export function Monitor({ camera, onPress, grande = false }: { camera: Camera; onPress: () => void; grande?: boolean }) {
   const styles = useEstilos(criarEstilos);
@@ -43,7 +26,7 @@ export function Monitor({ camera, onPress, grande = false }: { camera: Camera; o
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${camera.nome}, ${estado === 'online' ? 'ao vivo' : estado === 'offline' ? 'fora do ar' : 'sem informação'}. Abrir.`}
+      accessibilityLabel={`${camera.nome}, ${estado === 'online' ? 'transmitindo' : estado === 'offline' ? 'fora do ar' : 'sem informação'}. Abrir.`}
       style={({ pressed }) => [styles.monitor, estado === 'offline' && styles.monitorOffline, pressed && styles.monitorPressionado]}
     >
       {foto ? (
@@ -62,10 +45,8 @@ export function Monitor({ camera, onPress, grande = false }: { camera: Camera; o
       </View>
 
       <View style={styles.selo}>
-        {estado === 'online' ? <Pulso cor={cores.estadoOnline} tamanho={componentes.selo.ponto} /> : (
-          <View style={[styles.ponto, { backgroundColor: estado === 'offline' ? cores.estadoOffline : cores.estadoNeutro }]} />
-        )}
-        <Text style={styles.seloTexto}>{estado === 'online' ? 'Ao vivo' : estado === 'offline' ? 'Offline' : 'Sem info'}</Text>
+        <View style={[styles.ponto, { backgroundColor: estado === 'online' ? cores.estadoOnline : estado === 'offline' ? cores.estadoOffline : cores.estadoNeutro }]} />
+        <Text style={styles.seloTexto}>{estado === 'online' ? 'No ar' : estado === 'offline' ? 'Fora' : 'Sem info'}</Text>
       </View>
 
       {atencao && (
@@ -78,7 +59,7 @@ export function Monitor({ camera, onPress, grande = false }: { camera: Camera; o
 }
 
 /**
- * Faixa de estado: a proporção de câmeras online, offline e sem informação.
+ * Faixa de estado: a proporção de câmeras no ar, fora e sem informação.
  * Cada parte tem rótulo e número ao lado — a cor nunca é a única pista.
  */
 export function FaixaDeEstado({ cameras }: { cameras: Camera[] }) {
@@ -87,8 +68,8 @@ export function FaixaDeEstado({ cameras }: { cameras: Camera[] }) {
   const conta: Record<Estado, number> = { online: 0, offline: 0, desconhecido: 0 };
   for (const c of cameras) conta[estadoDe(c)] += 1;
   const partes: { estado: Estado; rotulo: string; cor: string }[] = [
-    { estado: 'online', rotulo: 'Online', cor: cores.estadoOnline },
-    { estado: 'offline', rotulo: 'Offline', cor: cores.estadoOffline },
+    { estado: 'online', rotulo: 'No ar', cor: cores.estadoOnline },
+    { estado: 'offline', rotulo: 'Fora do ar', cor: cores.estadoOffline },
     { estado: 'desconhecido', rotulo: 'Sem informação', cor: cores.estadoNeutro },
   ];
   if (cameras.length === 0) return null;
@@ -97,7 +78,7 @@ export function FaixaDeEstado({ cameras }: { cameras: Camera[] }) {
     <View
       style={styles.faixaBloco}
       accessibilityRole="image"
-      accessibilityLabel={`De ${cameras.length} câmeras: ${conta.online} online, ${conta.offline} offline, ${conta.desconhecido} sem informação.`}
+      accessibilityLabel={`De ${cameras.length} câmeras: ${conta.online} no ar, ${conta.offline} fora do ar, ${conta.desconhecido} sem informação.`}
     >
       <View style={styles.faixa}>
         {partes.filter(p => conta[p.estado] > 0).map(p => (
@@ -117,46 +98,6 @@ export function FaixaDeEstado({ cameras }: { cameras: Camera[] }) {
   );
 }
 
-export interface Alerta {
-  chave: string;
-  grave: boolean;
-  titulo: string;
-  detalhe: string;
-  aoTocar: () => void;
-}
-
-/** Alertas da central — só o que pede ação agora, tirado do estado real das câmeras. */
-export function Alertas({ alertas }: { alertas: Alerta[] }) {
-  const styles = useEstilos(criarEstilos);
-  if (alertas.length === 0) {
-    return (
-      <View style={styles.tudoCerto}>
-        <Text style={styles.tudoCertoTexto}>Nenhum alerta. Todas as câmeras consultadas estão no ar.</Text>
-      </View>
-    );
-  }
-  return (
-    <View style={styles.alertas}>
-      {alertas.map(a => (
-        <Pressable
-          key={a.chave}
-          onPress={a.aoTocar}
-          accessibilityRole="button"
-          accessibilityLabel={`${a.grave ? 'Alerta grave' : 'Atenção'}: ${a.titulo}. ${a.detalhe}`}
-          style={({ pressed }) => [styles.alerta, a.grave && styles.alertaGrave, pressed && styles.alertaPressionado]}
-        >
-          <View style={[styles.alertaBarra, a.grave && styles.alertaBarraGrave]} />
-          <View style={styles.alertaTexto}>
-            <Text style={styles.alertaTitulo} numberOfLines={1}>{a.titulo}</Text>
-            <Text style={styles.alertaDetalhe} numberOfLines={1}>{a.detalhe}</Text>
-          </View>
-          <Text style={[styles.alertaNivel, a.grave && styles.alertaNivelGrave]}>{a.grave ? 'Grave' : 'Atenção'}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 /** Barra de uso (ex.: espaço de gravação): preenchido / total, com o valor escrito ao lado. */
 export function Medidor({ fracao, rotulo }: { fracao: number; rotulo: string }) {
   const styles = useEstilos(criarEstilos);
@@ -172,33 +113,31 @@ export function Medidor({ fracao, rotulo }: { fracao: number; rotulo: string }) 
 }
 
 const criarEstilos = (c: Paleta) => StyleSheet.create({
-  relogio: { fontFamily: fontes.nome, fontSize: corpo.cabecalho, color: c.texto, fontVariant: ['tabular-nums'] },
-
   monitor: {
     aspectRatio: 16 / 9, backgroundColor: palco.fundo, borderRadius: raio.medio, overflow: 'hidden',
-    borderWidth: 1, borderColor: c.linha,
+    borderWidth: 1, borderColor: c.vidroBorda,
   },
-  monitorOffline: { borderColor: c.estadoOffline },
-  monitorPressionado: { borderColor: c.luz, boxShadow: c.brilho },
-  semSinal: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: c.predio },
-  semSinalTexto: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
+  monitorOffline: { borderColor: c.estadoOffline, borderWidth: 2 },
+  monitorPressionado: { borderColor: c.luz },
+  semSinal: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: c.superficie },
+  semSinalTexto: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
   tarja: {
     position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: espaco[2],
     backgroundColor: palco.veu, paddingHorizontal: espaco[2], paddingVertical: espaco[1],
   },
-  codigo: { fontFamily: fontes.nome, fontSize: corpo.micro, color: palco.texto, opacity: 0.75 },
-  nomeNoMonitor: { flex: 1, fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: palco.texto },
+  codigo: { ...fontes.mono, fontSize: corpo.micro, color: palco.texto, opacity: 0.75 },
+  nomeNoMonitor: { flex: 1, ...fontes.textoForte, fontSize: corpo.pequeno, color: palco.texto },
   selo: {
     position: 'absolute', top: espaco[1.5], right: espaco[1.5], flexDirection: 'row', alignItems: 'center', gap: espaco[1],
-    backgroundColor: palco.veu, borderRadius: componentes.selo.raio, paddingHorizontal: espaco[1.5], paddingVertical: espaco[0.5],
+    backgroundColor: palco.veu, borderRadius: raio.pequeno, paddingHorizontal: espaco[1.5], paddingVertical: espaco[0.5],
   },
-  seloTexto: { fontFamily: fontes.textoForte, fontSize: corpo.micro, color: palco.texto },
+  seloTexto: { ...fontes.textoForte, fontSize: corpo.micro, color: palco.texto },
   ponto: { width: componentes.selo.ponto, height: componentes.selo.ponto, borderRadius: componentes.selo.ponto / 2 },
   aviso: {
-    position: 'absolute', top: espaco[1.5], left: espaco[1.5], backgroundColor: palco.veu, borderRadius: componentes.selo.raio,
-    borderWidth: 1, borderColor: c.estadoOffline, paddingHorizontal: espaco[1.5], paddingVertical: espaco[0.5],
+    position: 'absolute', top: espaco[1.5], left: espaco[1.5], backgroundColor: palco.veu, borderRadius: raio.pequeno,
+    borderWidth: 1, borderColor: c.estadoEspera, paddingHorizontal: espaco[1.5], paddingVertical: espaco[0.5],
   },
-  avisoTexto: { fontFamily: fontes.textoForte, fontSize: corpo.micro, color: palco.texto },
+  avisoTexto: { ...fontes.textoForte, fontSize: corpo.micro, color: palco.texto },
 
   faixaBloco: { gap: espaco[2] },
   // partes separadas por um vão da cor do fundo, pra não depender só da cor
@@ -206,28 +145,11 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   faixaParte: { borderRadius: raio.pequeno },
   legenda: { flexDirection: 'row', flexWrap: 'wrap', columnGap: espaco[4], rowGap: espaco[1] },
   legendaItem: { flexDirection: 'row', alignItems: 'center', gap: espaco[1.5] },
-  legendaTexto: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
-  legendaNumero: { fontFamily: fontes.nome, fontSize: corpo.base, color: c.texto },
-
-  alertas: { gap: espaco[2] },
-  alerta: {
-    flexDirection: 'row', alignItems: 'center', gap: espaco[3], minHeight: componentes.linha.alturaMin, paddingRight: espaco[3],
-    backgroundColor: c.superficie, borderRadius: raio.medio, borderWidth: 1, borderColor: c.linha, overflow: 'hidden',
-  },
-  alertaGrave: { borderColor: c.estadoOffline },
-  alertaPressionado: { boxShadow: c.brilho },
-  alertaBarra: { width: componentes.poste.trilho, alignSelf: 'stretch', backgroundColor: c.luz },
-  alertaBarraGrave: { backgroundColor: c.estadoOffline },
-  alertaTexto: { flex: 1, paddingVertical: espaco[2], gap: espaco[0.5] },
-  alertaTitulo: { fontFamily: fontes.textoForte, fontSize: corpo.base, color: c.texto },
-  alertaDetalhe: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
-  alertaNivel: { fontFamily: fontes.textoForte, fontSize: corpo.pequeno, color: c.azul },
-  alertaNivelGrave: { color: c.erro },
-  tudoCerto: { backgroundColor: c.superficie, borderRadius: raio.medio, borderWidth: 1, borderColor: c.linha, padding: espaco[3] },
-  tudoCertoTexto: { fontFamily: fontes.texto, fontSize: corpo.base, lineHeight: entrelinha.base, color: c.textoSuave },
+  legendaTexto: { ...fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
+  legendaNumero: { ...fontes.mono, fontSize: corpo.base, color: c.texto },
 
   medidorBloco: { gap: espaco[1] },
-  medidorTrilho: { height: componentes.medidor.altura, borderRadius: raio.pequeno, backgroundColor: c.linha, overflow: 'hidden' },
+  medidorTrilho: { height: componentes.medidor.altura, borderRadius: raio.pequeno, backgroundColor: c.superficieForte, overflow: 'hidden' },
   medidorCheio: { height: '100%', borderRadius: raio.pequeno, backgroundColor: c.luz },
-  medidorRotulo: { fontFamily: fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
+  medidorRotulo: { ...fontes.texto, fontSize: corpo.pequeno, color: c.textoSuave },
 });
