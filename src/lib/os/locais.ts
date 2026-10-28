@@ -4,6 +4,7 @@
  * técnicos e não fica guardado no celular.
  *
  *   GET  /locais/{id}                histórico (as mais novas primeiro)
+ *   GET  /locais/{id}/os/{os}        uma OS do histórico, inteira e só para ver (de qualquer técnico)
  *   POST /locais/{id}/solicitacoes   {titulo, descricao, prioridade} → OS "solicitada"
  */
 import { api } from './api';
@@ -35,6 +36,11 @@ export function idDoQr(texto: string): number | null {
 
 export async function historicoDoLocal(condominioId: number): Promise<HistoricoDoLocal> {
   return api<HistoricoDoLocal>(`/locais/${condominioId}`);
+}
+
+/** Não passa pelo cache nem pela fila: a OS pode ser de outro técnico, e aqui nada muda. */
+export async function osDoLocal(condominioId: number, osId: number): Promise<OrdemServico> {
+  return api<OrdemServico>(`/locais/${condominioId}/os/${osId}`);
 }
 
 export async function pedirOS(condominioId: number, dados: { titulo: string; descricao: string; prioridade: Prioridade }): Promise<OrdemServico> {
