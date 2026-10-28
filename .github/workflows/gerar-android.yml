@@ -63,9 +63,14 @@ jobs:
             exit 1
           fi
 
-      # a trava de dependências deste app bate com o npm 11.8.0 (conferido com npm ci --dry-run)
+      # a trava de dependências deste app bate com o npm 11.8.0 (conferido com npm ci --dry-run). Instalado
+      # no lugar do npm 10 da máquina: o build do EAS roda o próprio `npm ci` com o npm que achar, e o
+      # npm 10 recusa a trava (resolve as dependências "peer" de outro jeito)
       - name: Instala as dependências
-        run: npx --yes npm@11.8.0 ci
+        run: |
+          npm install --global npm@11.8.0
+          npm --version
+          npm ci
 
       - name: Gera o app
         run: |
