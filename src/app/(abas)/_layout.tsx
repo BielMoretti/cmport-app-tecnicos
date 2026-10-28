@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlifoCameraAba, GlifoConta, GlifoInicio, GlifoInstalar } from '@/components/arte';
+import { GlifoLista } from '@/components/os/arte';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTema } from '@/contexts/TemaContext';
 import { ehAdministrador } from '@/lib/acesso';
@@ -13,8 +14,8 @@ const icone = (Glifo: (p: { cor: string; tamanho: number }) => ReactNode) =>
   ({ color }: { color: ColorValue }) => <Glifo cor={String(color)} tamanho={componentes.abas.icone} />;
 
 /**
- * Abas por tarefa: Início (o que fazer agora), Instalar (condomínio, poste, câmeras),
- * Câmeras (tudo o que está instalado, por poste) e Conta. No celular, pílula flutuante embaixo;
+ * Abas por tarefa: Início (o que fazer agora), OS (as ordens de serviço do técnico), Instalar
+ * (condomínio, poste, câmeras), Câmeras (tudo o que está instalado, por poste) e Conta. No celular, pílula flutuante embaixo;
  * em tela larga de Android, trilho na lateral.
  */
 export default function AbasLayout() {
@@ -59,6 +60,7 @@ export default function AbasLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: icone(GlifoInicio) }} />
+      <Tabs.Screen name="os" options={{ title: 'OS', tabBarIcon: icone(GlifoLista) }} />
       {/* Instalar só existe para quem gerencia câmeras (ver lib/acesso.ts) */}
       <Tabs.Protected guard={admin}>
         <Tabs.Screen name="instalar" options={{ title: 'Instalar', tabBarIcon: icone(GlifoInstalar) }} />

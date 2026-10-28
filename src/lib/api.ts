@@ -1,60 +1,22 @@
 import { cabecalhosDoAparelho, prepararAparelho } from './aparelho';
+import { criarCliente } from './cliente';
 import { API_URL } from './config';
 import { arrumarNomes } from './texto';
 
-export class ApiError extends Error {
-  status: number;
+export { ApiError } from './cliente';
 
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
-let token: string | null = null;
-let aoExpirar: (() => void) | null = null;
-
-export function setToken(novo: string | null) {
-  token = novo;
-}
-
-/** Chamado quando o backend responde 401 numa rota autenticada (token expirou — dura 8h). */
-export function setAoExpirar(fn: (() => void) | null) {
-  aoExpirar = fn;
-}
-
-function mensagemDeErro(status: number, corpo: unknown): string {
-  const detail = (corpo as { detail?: unknown } | null)?.detail;
-  if (typeof detail === 'string') return detail;
-  if (status >= 500) return 'Servidor indisponível. Tente novamente.';
-  return `Erro ${status}.`;
-}
-
-// redirect_slashes=False no backend — nunca mandar barra no final do path (dá 404)
-export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+/**
+ * Cliente da API das câmeras (/api/instalador/v1). O token é o do serviço de câmeras, tirado no
+ * mesmo login da OS (contexts/AuthContext.tsx).
+ */
+const cameras = criarCliente({
+  base: API_URL,
   // a identidade do aparelho vai em todo pedido: é o que o servidor confere no login preso a um aparelho
-  await prepararAparelho();
-  const headers: Record<string, string> = { Accept: 'application/json', ...cabecalhosDoAparelho() };
-  if (init.body !== undefined) headers['Content-Type'] = 'application/json';
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  let res: Response;
-  try {
-    res = await fetch(`${API_URL}${path}`, {
-      method: init.method ?? 'GET',
-      headers,
-      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
-    });
-  } catch {
-    throw new ApiError(0, 'Sem conexão com o servidor.');
-  }
-
-  const corpo: unknown = res.status === 204 ? null : await res.json().catch(() => null);
-
-  if (!res.ok) {
-    if (res.status === 401 && token) aoExpirar?.();
-    throw new ApiError(res.status, mensagemDeErro(res.status, corpo));
-  }
+  cabecalhos: async () => { await prepararAparelho(); return cabecalhosDoAparelho(); },
   // nomes de condomínio chegam em MAIÚSCULAS; aqui viram texto normal (ver lib/texto.ts)
-  return arrumarNomes(corpo) as T;
-}
+  tratar: arrumarNomes,
+  // o login da OS entrou, mas o das câmeras não (serviço fora do ar naquela hora)
+  semToken: 'As câmeras não estão disponíveis nesta sessão. Saia e entre de novo para ver as câmeras.',
+});
+
+export const { api, setToken, setAoExpirar, setAoRenovar, renovarSessao } = cameras;

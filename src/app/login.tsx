@@ -68,7 +68,7 @@ export default function LoginScreen() {
           <LogoPlaca tamanho={componentes.logoPlaca.entrada} />
           <View>
             <Text style={styles.nomeMarca}>CM PORT</Text>
-            <Text style={styles.lema}>Técnico: instalar e conferir as câmeras.</Text>
+            <Text style={styles.lema}>Técnico: ordens de serviço e câmeras.</Text>
           </View>
         </View>
 
@@ -122,7 +122,7 @@ export default function LoginScreen() {
           >
             {enviando ? <ActivityIndicator color={cores.sobreLuz} /> : <Text style={styles.botaoTexto}>Entrar</Text>}
           </Toque>
-          <Text style={styles.ajuda}>Use o mesmo email e a mesma senha da dash.</Text>
+          <Text style={styles.ajuda}>Use o email e a senha da sua conta de técnico (a mesma das OS).</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

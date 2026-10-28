@@ -26,9 +26,10 @@ o técnico sair do poste sabendo que todas as câmeras estão transmitindo e gra
 
 ## Positioning
 
-É a ferramenta de campo do sistema da CM Port: fala com uma API própria (`instalador.cmport.com.br`)
-que só cuida de postes, câmeras, ao vivo e gravações, e confere a transmissão direto no servidor de
-vídeo da CM Port, sem passar pela dash.
+É a ferramenta de campo do sistema da CM Port: as ordens de serviço do técnico e as câmeras, num
+app só, com a conta de técnico da OS. Fala com `tec.cmport.com.br`, em dois serviços separados (OS;
+postes, câmeras, ao vivo e gravações), e confere a transmissão direto no servidor de vídeo da CM
+Port, sem passar pela dash.
 
 ## Operating Context
 
