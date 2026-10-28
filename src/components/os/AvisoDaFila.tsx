@@ -21,7 +21,7 @@ function plural(n: number) {
 export default function AvisoDaFila({ osId }: { osId?: number }) {
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
-  const { itens, enviando, semSinal } = useFila();
+  const { itens, enviando, semSinal, semServidor } = useFila();
   const daqui = osId === undefined ? itens : itens.filter(i => i.acao.os === osId);
   if (!daqui.length) return null;
   const recusada: ItemDaFila | undefined = daqui.find(i => i.erro);
@@ -44,14 +44,24 @@ export default function AvisoDaFila({ osId }: { osId?: number }) {
     );
   }
 
+  const guardadas = `${plural(daqui.length)} ${daqui.length === 1 ? 'guardada' : 'guardadas'} no celular`;
   const texto = enviando
     ? `Enviando ${plural(daqui.length)}…`
     : semSinal
-      ? `Sem sinal: ${plural(daqui.length)} ${daqui.length === 1 ? 'guardada' : 'guardadas'} no celular. Sobem sozinhas quando o sinal voltar.`
-      : `${plural(daqui.length)} esperando para enviar.`;
+      ? `Sem sinal: ${guardadas}. Sobem sozinhas quando o sinal voltar.`
+      : semServidor
+        ? `O servidor não respondeu: ${guardadas}. O app tenta de novo sozinho.`
+        : `${plural(daqui.length)} esperando para enviar.`;
   return (
     <View style={[styles.faixa, { backgroundColor: cores.andamento.fundo }]} accessibilityLiveRegion="polite">
       <Text style={[styles.texto, { color: cores.andamento.texto }]}>{texto}</Text>
+      {!enviando && (
+        <View style={styles.botoes}>
+          <Pressable onPress={() => { void tentarDeNovo(); }} accessibilityRole="button" hitSlop={8}>
+            <Text style={[styles.botao, { color: cores.andamento.texto }]}>Enviar agora</Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

@@ -30,6 +30,26 @@ interface Opcoes {
 }
 
 const UMA_HORA_MS = 60 * 60 * 1000;
+// sem resposta neste prazo, desiste: um pedido preso (Wi-Fi que caiu no meio, servidor reiniciando)
+// não pode segurar a fila do celular para sempre. Arquivo tem mais tempo: a foto sobe devagar no 3G.
+const PRAZO_MS = 30_000;
+const PRAZO_ARQUIVO_MS = 120_000;
+
+/** fetch com prazo; a resposta também é lida dentro dele. Sem rede ou sem resposta = ApiError 0. */
+async function buscar(url: string, init: RequestInit, prazoMs: number): Promise<{ res: Response; corpo: unknown }> {
+  const controle = new AbortController();
+  const relogio = setTimeout(() => controle.abort(), prazoMs);
+  try {
+    const res = await fetch(url, { ...init, signal: controle.signal });
+    const corpo: unknown = res.status === 204 ? null : await res.json().catch(() => null);
+    if (controle.signal.aborted) throw new Error('prazo');
+    return { res, corpo };
+  } catch {
+    throw new ApiError(0, controle.signal.aborted ? 'O servidor demorou demais para responder.' : 'Sem conexão com o servidor.');
+  } finally {
+    clearTimeout(relogio);
+  }
+}
 
 /** O token vence dentro deste prazo? Token ilegível conta como "não sei". */
 export function venceEm(token: string | null, prazoMs: number): boolean {
@@ -69,10 +89,10 @@ export function criarCliente({ base, cabecalhos, tratar, semToken }: Opcoes) {
   function renovarSessao(): Promise<boolean> {
     renovando ??= (async () => {
       try {
-        const res = await fetch(`${base}/auth/renovar`, {
+        const { res, corpo } = await buscar(`${base}/auth/renovar`, {
           method: 'POST', headers: { Accept: 'application/json', ...(await cabecalhos?.()), Authorization: `Bearer ${token}` },
-        });
-        const nova = (await res.json().catch(() => null)) as TokenDoServico | null;
+        }, PRAZO_MS);
+        const nova = corpo as TokenDoServico | null;
         if (!res.ok || !nova?.access_token) return false;
         token = nova.access_token;
         aoRenovar?.(nova);
@@ -86,7 +106,8 @@ export function criarCliente({ base, cabecalhos, tratar, semToken }: Opcoes) {
     return renovando;
   }
 
-  async function pedir<T>(path: string, method: string, extra: Record<string, string>, body: BodyInit | undefined): Promise<T> {
+  async function pedir<T>(path: string, method: string, extra: Record<string, string>, body: BodyInit | undefined,
+    prazoMs = PRAZO_MS): Promise<T> {
     const login = path === '/auth/login';
     if (!token && !login && semToken) throw new ApiError(401, semToken);
     // falta menos de uma hora: renova antes, para o pedido não bater num token vencido
@@ -94,13 +115,7 @@ export function criarCliente({ base, cabecalhos, tratar, semToken }: Opcoes) {
     const headers: Record<string, string> = { Accept: 'application/json', ...(await cabecalhos?.()), ...extra };
     if (token && !login) headers.Authorization = `Bearer ${token}`;
 
-    let res: Response;
-    try {
-      res = await fetch(`${base}${path}`, { method, headers, body });
-    } catch {
-      throw new ApiError(0, 'Sem conexão com o servidor.');
-    }
-    const corpo: unknown = res.status === 204 ? null : await res.json().catch(() => null);
+    const { res, corpo } = await buscar(`${base}${path}`, { method, headers, body }, prazoMs);
 
     if (!res.ok) {
       // o login recusado também é 401, mas não há sessão para encerrar
@@ -137,7 +152,7 @@ export function criarCliente({ base, cabecalhos, tratar, semToken }: Opcoes) {
         form.append('arquivo', { uri: arquivo.uri, name: arquivo.nome, type: arquivo.tipo } as unknown as Blob);
       }
       // sem Content-Type: o fetch põe o multipart com o separador certo
-      return pedir<T>(path, 'POST', {}, form);
+      return pedir<T>(path, 'POST', {}, form, PRAZO_ARQUIVO_MS);
     },
   };
 }
