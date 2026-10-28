@@ -37,6 +37,7 @@ const cor = {
   brancoPuro: '#FFFFFF',
   azulMarinho: '#0E2240',
   vermelhoAoVivo: '#D92D20',
+  lilas: '#B9A8FF',      // OS esperando aprovação (único uso)
 } as const;
 
 const semSombra = '0px 0px 0px rgba(0, 0, 0, 0)';
@@ -80,6 +81,9 @@ export const fontes = {
 
 export type Modo = 'escuro';
 
+/** Cor de cada situação da OS: texto e fundo tingido. Sempre com o rótulo escrito ao lado. */
+export interface CorDeSituacao { texto: string; fundo: string }
+
 export interface Paleta {
   fundo: string;
   fundoAlto: string;
@@ -112,6 +116,13 @@ export interface Paleta {
   estadoOffline: string;
   estadoNeutro: string;
   sobreEstado: string;  // número dentro da porta acesa
+  // Situação da OS, no mesmo vocabulário das câmeras: azul = a fazer, âmbar = em curso, verde = feita.
+  solicitada: CorDeSituacao;
+  aberta: CorDeSituacao;
+  andamento: CorDeSituacao;
+  pausada: CorDeSituacao;
+  concluida: CorDeSituacao;
+  cancelada: CorDeSituacao;
 }
 
 export const paleta: Paleta = {
@@ -145,6 +156,12 @@ export const paleta: Paleta = {
   estadoOffline: cor.vermelho,
   estadoNeutro: cor.cinzaFraco,
   sobreEstado: cor.tinta,
+  solicitada: { texto: cor.lilas, fundo: 'rgba(185, 168, 255, 0.14)' },
+  aberta: { texto: cor.sinal, fundo: 'rgba(110, 155, 255, 0.16)' },
+  andamento: { texto: cor.ambar, fundo: 'rgba(244, 183, 64, 0.14)' },
+  pausada: { texto: cor.cinza, fundo: 'rgba(163, 172, 185, 0.14)' },
+  concluida: { texto: cor.verde, fundo: 'rgba(52, 201, 139, 0.16)' },
+  cancelada: { texto: cor.vermelho, fundo: 'rgba(255, 107, 94, 0.16)' },
 };
 
 /** Cores que não mudam: o palco do vídeo é sempre preto, o logo sempre em placa clara. */

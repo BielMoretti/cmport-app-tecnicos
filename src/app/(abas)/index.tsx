@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Botao, Mensagem } from '@/components/formulario';
 import { Grupo, Linha } from '@/components/lista';
+import { OSDeHoje } from '@/components/os/OSDeHoje';
 import { Contagem, estadoDaPorta, PainelDePortas, resumoDasPortas } from '@/components/portas';
 import { Bloco, Esqueleto, Pilula, TopoDaAba } from '@/components/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
@@ -22,7 +23,7 @@ const MAX_RECENTES = 3;
 type Pendencia = { camera: Camera; tipo: 'fora' | 'esperando' | 'video' };
 
 /**
- * Início: o que fazer agora. Primeiro as pendências (o que caiu, o que ainda espera vídeo, o
+ * Início: o que fazer agora. Primeiro as OS de hoje; depois as pendências das câmeras (o que caiu, o que ainda espera vídeo, o
  * que transmite mal); depois os condomínios em que você mexeu por último, com o painel de
  * portas de cada poste. A lista completa fica na aba Câmeras.
  */
@@ -120,6 +121,8 @@ export default function InicioScreen() {
       <TopoDaAba titulo="Agora" abaixo={estadoGeral} />
 
       <View style={styles.corpo}>
+        <OSDeHoje />
+
         {erro && <Mensagem texto={erro} tom="erro" />}
 
         {carregando ? (
