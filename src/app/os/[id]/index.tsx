@@ -15,6 +15,7 @@ import { urlAbsoluta } from '@/lib/config';
 import { useFila } from '@/lib/os/fila';
 import { reduzirFoto } from '@/lib/os/foto';
 import { descreverMarcacao, marcarAqui } from '@/lib/os/local';
+import { osDoLocal } from '@/lib/os/locais';
 import { irAteOLocal } from '@/lib/os/rota';
 import {
   anexarAudio, anexarFoto, buscarOS, fazerCheckin, mandarMensagem, marcarItem, osNoCelular, passouDoPrazo, pausar, pendenciasParaConcluir, quando,
@@ -50,7 +51,9 @@ export default function DetalheDaOS() {
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // veio do histórico do local (QR): a OS pode ser de outro técnico e abre só para ver
+  const { id, local } = useLocalSearchParams<{ id: string; local?: string }>();
+  const somenteVer = !!local;
   const margem = useSafeAreaInsets();
   const [os, setOs] = useState<OrdemServico | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -61,20 +64,20 @@ export default function DetalheDaOS() {
   // volta da tela de concluir: busca de novo para mostrar a OS concluída
   useFocusEffect(useCallback(() => {
     let cancelado = false;
-    buscarOS(Number(id))
+    (local ? osDoLocal(Number(local), Number(id)) : buscarOS(Number(id)))
       .then(achada => { if (!cancelado) setOs(achada); })
       .catch(e => { if (!cancelado) setErro(e instanceof Error ? e.message : 'Não foi possível abrir a OS.'); });
     return () => { cancelado = true; };
-  }, [id]));
+  }, [id, local]));
 
   // a fila subiu (ou recusou) uma ação desta OS: mostra a versão nova, sem ir ao servidor
   const { itens } = useFila();
   const daqui = itens.filter(i => i.acao.os === Number(id)).length;
   const antes = useRef(daqui);
   useEffect(() => {
-    if (daqui !== antes.current) void osNoCelular(Number(id)).then(o => { if (o) setOs(o); });
+    if (!somenteVer && daqui !== antes.current) void osNoCelular(Number(id)).then(o => { if (o) setOs(o); });
     antes.current = daqui;
-  }, [daqui, id]);
+  }, [daqui, id, somenteVer]);
 
   const [paraMarcar, setParaMarcar] = useState<{ uri: string; largura: number; altura: number; momento: 'Antes' | 'Depois' } | null>(null);
 
@@ -124,7 +127,9 @@ export default function DetalheDaOS() {
   }
 
   const emAtendimento = os.situacao === 'andamento';
-  const podeFotografar = os.situacao === 'andamento' || os.situacao === 'pausada';
+  // só para ver: nenhum botão que mude a OS (o servidor também recusa)
+  const podeMexer = !somenteVer;
+  const podeFotografar = podeMexer && (os.situacao === 'andamento' || os.situacao === 'pausada');
   const feitos = os.checklist.filter(i => i.feito).length;
   const falta = pendenciasParaConcluir(os);
   const mensagens = os.mensagens ?? [];
@@ -144,26 +149,28 @@ export default function DetalheDaOS() {
         </View>
 
         {erro && <Aviso texto={erro} />}
-        <AvisoDaFila osId={os.id} />
+        {somenteVer
+          ? <Aviso tipo="info" texto="Só para consulta: daqui não dá para mudar nada nesta OS." />
+          : <AvisoDaFila osId={os.id} />}
 
         {(os.situacao === 'andamento' || os.situacao === 'pausada') && os.iniciada_em && (
           <Cronometro desde={os.iniciada_em} rodando={emAtendimento} foraDoPrazo={foraDoPrazo} />
         )}
 
         {/* a ação principal de cada momento fica no topo */}
-        {os.situacao === 'aberta' && (
+        {podeMexer && os.situacao === 'aberta' && (
           <View style={{ gap: espaco[2] }}>
             <Botao rotulo="Cheguei no local" carregando={ocupado === 'checkin'} desativado={!!ocupado}
               onPress={() => agir('checkin', async () => fazerCheckin(os.id, await marcarAqui()))} />
             <Text style={styles.ajuda}>Marca a hora e a sua localização e começa o atendimento.</Text>
           </View>
         )}
-        {os.situacao === 'pausada' && (
+        {podeMexer && os.situacao === 'pausada' && (
           <Botao rotulo="Retomar atendimento" carregando={ocupado === 'retomar'} desativado={!!ocupado}
             onPress={() => agir('retomar', () => retomar(os.id))} />
         )}
 
-        {(os.situacao === 'aberta' || os.situacao === 'pausada' || os.situacao === 'andamento') && (
+        {podeMexer && (os.situacao === 'aberta' || os.situacao === 'pausada' || os.situacao === 'andamento') && (
           <View style={{ gap: espaco[2] }}>
             <Text style={styles.rotulo}>Como chegar</Text>
             <View style={styles.dupla}>
@@ -179,6 +186,7 @@ export default function DetalheDaOS() {
 
         <Cartao>
           <Linha rotulo="Cliente" valor={os.cliente.nome} />
+          {somenteVer && <Linha rotulo="Técnico" valor={os.tecnico?.nome ?? 'Sem técnico'} />}
           <Linha rotulo="Endereço" valor={os.endereco} />
           <Linha rotulo="Agendada" valor={quando(os.agendada_para)} />
           {emAberto && !!os.prazo_em && (
@@ -189,7 +197,7 @@ export default function DetalheDaOS() {
           {os.conclusao && <Linha rotulo="Concluída" valor={descreverMarcacao(os.conclusao)} />}
         </Cartao>
 
-        {os.cliente.id > 0 && (
+        {podeMexer && os.cliente.id > 0 && (
           <Botao tipo="secundario" rotulo="Histórico deste local"
             onPress={() => router.push({ pathname: '/local/[id]', params: { id: String(os.cliente.id) } })} />
         )}
@@ -203,10 +211,10 @@ export default function DetalheDaOS() {
             {os.checklist.map(item => (
               <Pressable
                 key={item.id}
-                disabled={!emAtendimento}
+                disabled={!emAtendimento || !podeMexer}
                 onPress={() => agir(`item-${item.id}`, () => marcarItem(os.id, item.id, !item.feito))}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: item.feito, disabled: !emAtendimento }}
+                accessibilityState={{ checked: item.feito, disabled: !emAtendimento || !podeMexer }}
                 style={styles.item}
               >
                 <View style={[styles.caixa, item.feito && { backgroundColor: cores.azul, borderColor: cores.azul }]}>
@@ -215,7 +223,7 @@ export default function DetalheDaOS() {
                 <Text style={[styles.itemTexto, item.feito && styles.itemFeito]}>{item.texto}</Text>
               </Pressable>
             ))}
-            {os.situacao === 'aberta' && <Text style={styles.ajuda}>Faça o check-in para marcar os itens.</Text>}
+            {podeMexer && os.situacao === 'aberta' && <Text style={styles.ajuda}>Faça o check-in para marcar os itens.</Text>}
           </Secao>
         )}
 
@@ -244,14 +252,14 @@ export default function DetalheDaOS() {
           </Secao>
         )}
 
-        {(os.situacao === 'aberta' || os.situacao === 'andamento' || os.situacao === 'pausada' || os.situacao === 'concluida'
+        {((podeMexer && (os.situacao === 'aberta' || os.situacao === 'andamento' || os.situacao === 'pausada' || os.situacao === 'concluida'))
           || (os.audios ?? []).length > 0) && (
           <Secao titulo="Áudios" extra={(os.audios ?? []).length ? String(os.audios!.length) : undefined}>
             {(os.audios ?? []).length === 0 && (
               <Text style={styles.ajuda}>Explique o que viu ou deixe um recado ao escritório em vez de digitar (até 2 minutos).</Text>
             )}
             {(os.audios ?? []).map(a => <TocarAudio key={a.id} audio={a} />)}
-            {os.situacao !== 'cancelada' && os.situacao !== 'solicitada' && (
+            {podeMexer && os.situacao !== 'cancelada' && os.situacao !== 'solicitada' && (
               <GravarAudio desativado={!!ocupado} onErro={setErro}
                 onGravado={(arquivo, duracao) => agir('audio', () => anexarAudio(os.id, arquivo, duracao))} />
             )}
@@ -269,16 +277,16 @@ export default function DetalheDaOS() {
           </>
         )}
 
-        {(os.situacao !== 'cancelada' || mensagens.length > 0) && (
+        {((podeMexer && os.situacao !== 'cancelada') || mensagens.length > 0) && (
           <Secao titulo="Conversa com o escritório" extra={mensagens.length ? String(mensagens.length) : undefined}>
             {mensagens.length === 0 && <Text style={styles.ajuda}>Precisa de algo do escritório? Escreva aqui. Sem sinal, a mensagem espera e sobe depois.</Text>}
             {mensagens.map(m => (
               <View key={m.id} style={[styles.balao, m.autor === 'tecnico' ? styles.balaoMeu : styles.balaoDeles]}>
-                <Text style={styles.legendaBalao}>{m.autor === 'tecnico' ? 'Você' : m.nome} · {quando(m.em)}{m.id < 0 ? ' · no celular' : ''}</Text>
+                <Text style={styles.legendaBalao}>{m.autor === 'tecnico' && podeMexer ? 'Você' : m.nome} · {quando(m.em)}{m.id < 0 ? ' · no celular' : ''}</Text>
                 <Text style={styles.descricao}>{m.texto}</Text>
               </View>
             ))}
-            {os.situacao !== 'cancelada' && (
+            {podeMexer && os.situacao !== 'cancelada' && (
               <View style={{ gap: espaco[2] }}>
                 <Campo rotulo="Mensagem" value={mensagem} onChangeText={setMensagem} multiline maxLength={2000}
                   placeholder="Ex.: a portaria não libera a entrada" />
@@ -289,7 +297,7 @@ export default function DetalheDaOS() {
           </Secao>
         )}
 
-        {emAtendimento && (
+        {podeMexer && emAtendimento && (
           <View style={{ gap: espaco[3] }}>
             {falta.length > 0 && <Aviso tipo="info" texto={`Para concluir falta: ${falta.join(' e ')}.`} />}
             <Botao rotulo="Concluir OS" desativado={falta.length > 0 || !!ocupado}

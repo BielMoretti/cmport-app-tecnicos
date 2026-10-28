@@ -82,10 +82,12 @@ export default function Local() {
                 </Cartao>
               )}
 
-              <Text style={styles.rotulo}>Feito antes aqui</Text>
+              <Text style={styles.rotulo}>OS deste local</Text>
               {dados.ordens.length === 0 && <Text style={styles.ajuda}>Nenhuma OS anterior.</Text>}
+              {dados.ordens.length > 0 && <Text style={styles.ajuda}>Toque numa OS para ver tudo: relato, fotos e assinatura.</Text>}
               {dados.ordens.map(o => (
-                <Cartao key={o.id}>
+                <Cartao key={o.id} rotulo={`Ver ${o.numero}`}
+                  onPress={() => router.push({ pathname: '/os/[id]', params: { id: String(o.id), local: String(dados.condominio_id) } })}>
                   <View style={styles.linhaTopo}>
                     <Text style={styles.numero}>{o.numero}</Text>
                     <SeloSituacao situacao={o.situacao} />
