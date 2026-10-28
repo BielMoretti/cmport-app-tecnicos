@@ -11,7 +11,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://instalador.cmport.com.br/api/instalador/v1"
+        "EXPO_PUBLIC_SITE": "https://tec.cmport.com.br"
       }
     },
     "preview": {
@@ -20,13 +20,13 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://instalador.cmport.com.br/api/instalador/v1"
+        "EXPO_PUBLIC_SITE": "https://tec.cmport.com.br"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://instalador.cmport.com.br/api/instalador/v1"
+        "EXPO_PUBLIC_SITE": "https://tec.cmport.com.br"
       }
     }
   }

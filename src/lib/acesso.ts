@@ -62,7 +62,8 @@ export function condominiosDoPainel(condominios: Condominio[], postes: Poste[], 
 // ───────────────────────── Marca d'água ─────────────────────────
 
 /** Id do usuário, lido do token de sessão (campo `sub`). null se não der pra ler. */
-export function idDoToken(token: string): string | null {
+export function idDoToken(token: string | null): string | null {
+  if (!token) return null;
   try {
     const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     const sub = (JSON.parse(atob(base64)) as { sub?: unknown }).sub;
@@ -77,13 +78,13 @@ export function idDoToken(token: string): string | null {
  * Hoje é o nome + o id do login (que já existe no token). Quando o sistema ganhar
  * um identificador próprio por usuário, é só trocar aqui.
  */
-export function textoDaMarca(usuario: { nome: string; token: string }): string {
+export function textoDaMarca(usuario: { nome: string; token: string | null }): string {
   const id = idDoToken(usuario.token);
   return id ? `${usuario.nome}  ID ${id}` : usuario.nome;
 }
 
 /** A linha que assina a imagem: a marca, quem estava vendo e quando. */
-export function assinaturaDaMarca(usuario: { nome: string; token: string }, quando: Date): string {
+export function assinaturaDaMarca(usuario: { nome: string; token: string | null }, quando: Date): string {
   const data = quando.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const hora = quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   return `CM PORT  ${textoDaMarca(usuario)}  ${data} ${hora}`;

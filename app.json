@@ -2,7 +2,10 @@
   "expo": {
     "name": "CMPort Técnico",
     "slug": "cmport-tecnico",
-    "scheme": "cmporttecnico",
+    "scheme": [
+      "cmporttecnico",
+      "cmportos"
+    ],
     "version": "0.1.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
@@ -17,10 +20,9 @@
       },
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
         "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.BLUETOOTH"
+        "android.permission.BLUETOOTH",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ],
       "permissions": [
         "android.permission.ACCESS_NETWORK_STATE",
@@ -34,7 +36,13 @@
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_AUDIO"
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "plugins": [
@@ -56,12 +64,37 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "O CM Port usa as suas fotos só para você escolher a foto do perfil.",
-          "cameraPermission": false,
-          "microphonePermission": false
+          "photosPermission": "O CM Port usa as suas fotos só para a foto do perfil e para anexar ao serviço.",
+          "cameraPermission": "O CM Port usa a câmera para as fotos do serviço (antes e depois)."
         }
       ],
-      "expo-screen-orientation"
+      "expo-screen-orientation",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O CM Port registra onde você estava ao chegar e ao concluir cada OS. Só com o app aberto."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O CM Port usa a câmera para as fotos do serviço e para ler o QR das etiquetas.",
+          "microphonePermission": "O CM Port usa o microfone só quando você toca em gravar um áudio na OS."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0C0E12",
+          "defaultChannel": "os"
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "O CM Port grava o áudio que você manda na OS (relato ou recado ao escritório). Só quando você toca em gravar."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

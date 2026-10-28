@@ -4,18 +4,21 @@ import Constants from 'expo-constants';
 
 import { BarraCarregando, Toque } from '@/components/efeitos';
 import { Botao, confirmar, LinhaInfo, Mensagem, Secao } from '@/components/formulario';
+import AvisoDaFila from '@/components/os/AvisoDaFila';
 import { Avatar, Cartao, TopoDaAba } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos } from '@/contexts/TemaContext';
 import { NOME_DO_PAPEL } from '@/lib/acesso';
 import { ApiError } from '@/lib/api';
+import { POLITICA_DE_PRIVACIDADE, TERMOS_DE_USO } from '@/lib/config';
 import { apagarFoto, escolherFoto, salvarFoto } from '@/lib/foto';
+import { useFila } from '@/lib/os/fila';
 import { buscarPerfil, type Perfil } from '@/lib/perfil';
 import { componentes, corpo, entrelinha, espaco, fontes, type Paleta } from '@/lib/tema';
 
 /**
- * Conta: quem está logado, a foto (guardada neste aparelho) e o sair.
- * Nome e senha são os da dash e se mudam lá: a API dos instaladores só lê o cadastro.
+ * Conta: quem está logado, a foto (guardada neste aparelho), o que ainda não subiu das OS e o sair.
+ * Nome e e-mail são os da conta de técnico, cadastrada pelo escritório: o app só lê.
  */
 export default function ContaScreen() {
   const { usuario, logout, foto, definirFoto } = useAuth();
@@ -27,7 +30,8 @@ export default function ContaScreen() {
 
   const [mexendoNaFoto, setMexendoNaFoto] = useState(false);
   const [avisoFoto, setAvisoFoto] = useState<{ texto: string; erro: boolean } | null>(null);
-
+  // sair apaga do aparelho o que não subiu das OS: com ação na fila, avisa antes
+  const pendentes = useFila().itens.length;
 
   useEffect(() => {
     let cancelado = false;
@@ -73,7 +77,10 @@ export default function ContaScreen() {
   }
 
   async function sair() {
-    if (await confirmar('Sair da conta?', 'Você vai precisar do email e da senha para entrar de novo.', 'Sair')) {
+    const aviso = pendentes > 0
+      ? `Ainda há ${pendentes === 1 ? '1 ação de OS' : `${pendentes} ações de OS`} sem enviar. Sair agora apaga do celular: espere o sinal voltar para não perder o atendimento.`
+      : 'Você vai precisar do email e da senha para entrar de novo.';
+    if (await confirmar('Sair da conta?', aviso, pendentes > 0 ? 'Sair mesmo assim' : 'Sair')) {
       await logout();
     }
   }
@@ -114,9 +121,10 @@ export default function ContaScreen() {
 
         {erroDeCarga && <Mensagem texto={erroDeCarga} tom="erro" />}
 
+        <AvisoDaFila />
+
         <Secao titulo="Nome e senha">
-          <Mensagem texto="São os mesmos da dash e se mudam lá, em Minha conta. Este app só lê o seu cadastro." />
-          <Botao titulo="Abrir a dash" variante="secundario" onPress={() => { void Linking.openURL('https://dash.cmport.com.br'); }} />
+          <Mensagem texto="São os da sua conta de técnico, cadastrada pelo escritório. Para mudar, fale com o escritório." />
         </Secao>
 
         <Secao titulo="Sobre">
@@ -124,6 +132,8 @@ export default function ContaScreen() {
             {papel && <LinhaInfo rotulo="Nível de acesso" valor={NOME_DO_PAPEL[papel] ?? papel} />}
             <LinhaInfo rotulo="Versão do aplicativo" valor={Constants.expoConfig?.version ?? '–'} />
           </View>
+          <Botao titulo="Termos de uso" variante="secundario" onPress={() => { void Linking.openURL(TERMOS_DE_USO); }} />
+          <Botao titulo="Privacidade" variante="secundario" onPress={() => { void Linking.openURL(POLITICA_DE_PRIVACIDADE); }} />
         </Secao>
 
         <Botao titulo="Sair da conta" variante="perigo" onPress={() => { void sair(); }} />
