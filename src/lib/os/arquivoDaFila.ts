@@ -18,6 +18,15 @@ export async function guardarFotoDaFila(uri: string, id: string, extensao = 'jpg
   return destino.uri;
 }
 
+/** O arquivo guardado para a fila ainda está no celular? (Sumiu = o envio nunca vai dar certo.) */
+export function arquivoExiste(uri: string): boolean {
+  try {
+    return new File(uri).exists;
+  } catch {
+    return false;
+  }
+}
+
 export function apagarFotoDaFila(uri: string) {
   try {
     const f = new File(uri);

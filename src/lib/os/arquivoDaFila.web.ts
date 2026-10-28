@@ -13,6 +13,11 @@ export async function guardarFotoDaFila(uri: string, _id: string, _extensao = 'j
   });
 }
 
+/** Só o data: sobrevive a recarregar a página (o blob: morre junto). */
+export function arquivoExiste(uri: string): boolean {
+  return uri.startsWith('data:');
+}
+
 export function apagarFotoDaFila(_uri: string) { /* fica só no texto da fila, que já sai */ }
 
 export function apagarTodasAsFotosDaFila() { /* idem */ }

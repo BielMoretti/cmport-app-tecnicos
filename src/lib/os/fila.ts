@@ -4,7 +4,13 @@
  * Toda ação (check-in, checklist, foto, áudio, mensagem, pausar, retomar, concluir) entra aqui com a hora em que
  * aconteceu e sobe na ordem quando há sinal. Gasto de bateria: nada de ficar perguntando — a fila
  * tenta ao entrar uma ação, quando o celular avisa que a conexão voltou (NetInfo) e quando o app
- * volta para a tela. Sem rede, para na primeira tentativa e espera o próximo aviso.
+ * volta para a tela. Sem rede, para na primeira tentativa e espera o próximo aviso — e, enquanto
+ * houver o que enviar, tenta de novo sozinha, cada vez mais espaçado (10 s até 2 min): com o Wi-Fi
+ * ligado o tempo todo, o aviso de "a conexão voltou" nunca vem, e um pedido que falhou por um
+ * instante (sinal que oscilou, servidor reiniciando) deixava a OS presa até reabrir o app.
+ *
+ * Foto ou áudio cujo arquivo sumiu do celular não sobe nunca: vira erro na tela (descartar), em vez
+ * de parecer falta de sinal e segurar a fila.
  *
  * Ação recusada pelo servidor (409): se o servidor já está como a ação deixaria (o envio anterior
  * chegou e só a resposta se perdeu), sai em silêncio; senão fica com o erro na tela e as ações
@@ -16,7 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
 import { api, ApiError, enviarArquivo } from './api';
-import { apagarFotoDaFila, apagarTodasAsFotosDaFila } from './arquivoDaFila';
+import { apagarFotoDaFila, apagarTodasAsFotosDaFila, arquivoExiste } from './arquivoDaFila';
 import { guardarOS } from './cache';
 import { jaFeita, novaIdentidade, type Acao } from './regras';
 import type { OrdemServico } from './types';
@@ -35,9 +41,11 @@ interface Estado {
   enviando: boolean;
   /** a última tentativa não achou rede */
   semSinal: boolean;
+  /** a última tentativa tinha rede, mas o servidor não respondeu (ou demorou demais) */
+  semServidor: boolean;
 }
 
-let estado: Estado = { itens: [], enviando: false, semSinal: false };
+let estado: Estado = { itens: [], enviando: false, semSinal: false, semServidor: false };
 let carregada: Promise<void> | null = null;
 const ouvintes = new Set<(e: Estado) => void>();
 
@@ -77,10 +85,22 @@ export async function descartar(id: string): Promise<void> {
   await gravar(estado.itens.filter(i => i.id !== id));
 }
 
-/** Tenta de novo as que pararam com erro. */
+/** Tenta de novo agora: as que pararam com erro e as que esperavam sinal. */
 export async function tentarDeNovo(): Promise<void> {
+  tentativas = 0;
   await gravar(estado.itens.map(i => ({ ...i, erro: undefined })));
   await sincronizar();
+}
+
+let espera: ReturnType<typeof setTimeout> | null = null;
+let tentativas = 0;
+
+/** Agenda a próxima tentativa: 10 s, 20 s, 40 s… até 2 minutos entre uma e outra. */
+function tentarMaisTarde() {
+  if (espera) return;
+  const ms = Math.min(10_000 * 2 ** tentativas, 120_000);
+  tentativas += 1;
+  espera = setTimeout(() => { espera = null; void sincronizar(); }, ms);
 }
 
 /** Ao sair da conta: a fila e as fotos são do técnico que saiu. */
@@ -90,6 +110,10 @@ export async function apagarFila(): Promise<void> {
 }
 
 function enviar(a: Acao): Promise<OrdemServico> {
+  if ((a.tipo === 'foto' || a.tipo === 'audio') && !arquivoExiste(a.uri)) {
+    const qual = a.tipo === 'foto' ? 'a foto' : 'o áudio';
+    return Promise.reject(new ApiError(410, `O arquivo não está mais no celular. Descarte e grave ${qual} de novo.`));
+  }
   const local = { lat: 'lat' in a ? a.lat : null, lng: 'lng' in a ? a.lng : null, precisao: 'precisao' in a ? a.precisao : null };
   switch (a.tipo) {
     case 'checkin': return api(`/os/${a.os}/checkin`, { method: 'POST', body: { em: a.em, ...local } });
@@ -115,8 +139,10 @@ let rodando: Promise<void> | null = null;
 export function sincronizar(): Promise<void> {
   rodando ??= (async () => {
     await carregarFila();
-    if (!estado.itens.length) return;
+    if (espera) { clearTimeout(espera); espera = null; }
+    if (!estado.itens.length) { tentativas = 0; avisar({ semSinal: false, semServidor: false }); return; }
     avisar({ enviando: true });
+    let falhou = false;
     const paradas = new Set<number>();   // OS com uma ação recusada: as seguintes dela esperam
     try {
       for (const item of [...estado.itens]) {
@@ -126,9 +152,17 @@ export function sincronizar(): Promise<void> {
           await guardarOS(await enviar(acao));
           if (acao.tipo === 'foto' || acao.tipo === 'audio') apagarFotoDaFila(acao.uri);
           await gravar(estado.itens.filter(i => i.id !== item.id));
-          avisar({ semSinal: false });
+          tentativas = 0;
+          avisar({ semSinal: false, semServidor: false });
         } catch (e) {
-          if (!(e instanceof ApiError) || e.status === 0) { avisar({ semSinal: true }); break; }  // sem rede: espera o próximo aviso
+          if (!(e instanceof ApiError) || e.status === 0) {
+            // sem resposta: o celular diz se é falta de rede ou se a rede está lá e o servidor não respondeu
+            const rede = await NetInfo.fetch().catch(() => null);
+            const semRede = rede?.isConnected === false || rede?.isInternetReachable === false;
+            avisar({ semSinal: semRede, semServidor: !semRede });
+            falhou = true;
+            break;
+          }
           if (e.status === 401) break;                                                       // sessão caiu: o login resolve
           if (e.status === 409) {
             try {
@@ -144,6 +178,7 @@ export function sincronizar(): Promise<void> {
     } finally {
       avisar({ enviando: false });
     }
+    if (falhou) tentarMaisTarde();
   })().finally(() => { rodando = null; });
   return rodando;
 }
