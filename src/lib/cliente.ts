@@ -44,8 +44,10 @@ async function buscar(url: string, init: RequestInit, prazoMs: number): Promise<
     const corpo: unknown = res.status === 204 ? null : await res.json().catch(() => null);
     if (controle.signal.aborted) throw new Error('prazo');
     return { res, corpo };
-  } catch {
-    throw new ApiError(0, controle.signal.aborted ? 'O servidor demorou demais para responder.' : 'Sem conexão com o servidor.');
+  } catch (e) {
+    // o motivo do aparelho vai junto ("Network request failed"…): é o que diz por que não saiu
+    const motivo = e instanceof Error && e.message && e.message !== 'prazo' ? ` (${e.message})` : '';
+    throw new ApiError(0, controle.signal.aborted ? 'O servidor demorou demais para responder.' : `Sem conexão com o servidor${motivo}.`);
   } finally {
     clearTimeout(relogio);
   }
