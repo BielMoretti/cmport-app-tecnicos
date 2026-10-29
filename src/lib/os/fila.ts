@@ -43,9 +43,11 @@ interface Estado {
   semSinal: boolean;
   /** a última tentativa tinha rede, mas o servidor não respondeu (ou demorou demais) */
   semServidor: boolean;
+  /** a ação que não saiu na última tentativa e o motivo técnico, para a faixa mostrar e poder descartar */
+  travada: { id: string; motivo: string } | null;
 }
 
-let estado: Estado = { itens: [], enviando: false, semSinal: false, semServidor: false };
+let estado: Estado = { itens: [], enviando: false, semSinal: false, semServidor: false, travada: null };
 let carregada: Promise<void> | null = null;
 const ouvintes = new Set<(e: Estado) => void>();
 
@@ -82,6 +84,7 @@ export async function enfileirar(acao: Acao): Promise<void> {
 export async function descartar(id: string): Promise<void> {
   const item = estado.itens.find(i => i.id === id);
   if (item?.acao.tipo === 'foto' || item?.acao.tipo === 'audio') apagarFotoDaFila(item.acao.uri);
+  if (estado.travada?.id === id) avisar({ travada: null });
   await gravar(estado.itens.filter(i => i.id !== id));
 }
 
@@ -140,10 +143,11 @@ export function sincronizar(): Promise<void> {
   rodando ??= (async () => {
     await carregarFila();
     if (espera) { clearTimeout(espera); espera = null; }
-    if (!estado.itens.length) { tentativas = 0; avisar({ semSinal: false, semServidor: false }); return; }
+    if (!estado.itens.length) { tentativas = 0; avisar({ semSinal: false, semServidor: false, travada: null }); return; }
     avisar({ enviando: true });
     let falhou = false;
-    const paradas = new Set<number>();   // OS com uma ação recusada: as seguintes dela esperam
+    let travada: Estado['travada'] = null;
+    const paradas = new Set<number>();   // OS com uma ação recusada ou que não saiu: as seguintes dela esperam
     try {
       for (const item of [...estado.itens]) {
         const { acao } = item;
@@ -153,15 +157,20 @@ export function sincronizar(): Promise<void> {
           if (acao.tipo === 'foto' || acao.tipo === 'audio') apagarFotoDaFila(acao.uri);
           await gravar(estado.itens.filter(i => i.id !== item.id));
           tentativas = 0;
-          avisar({ semSinal: false, semServidor: false });
+          if (!falhou) avisar({ semSinal: false, semServidor: false });
         } catch (e) {
           if (!(e instanceof ApiError) || e.status === 0) {
             // sem resposta: o celular diz se é falta de rede ou se a rede está lá e o servidor não respondeu
             const rede = await NetInfo.fetch().catch(() => null);
             const semRede = rede?.isConnected === false || rede?.isInternetReachable === false;
-            avisar({ semSinal: semRede, semServidor: !semRede });
+            const motivo = e instanceof Error ? (e instanceof ApiError ? e.message : `${e.name}: ${e.message}`) : String(e);
+            travada ??= { id: item.id, motivo };
+            avisar({ semSinal: semRede, semServidor: !semRede, travada });
             falhou = true;
-            break;
+            // sem rede, nada vai sair agora; com rede, só esta OS espera e as outras seguem
+            if (semRede) break;
+            paradas.add(acao.os);
+            continue;
           }
           if (e.status === 401) break;                                                       // sessão caiu: o login resolve
           if (e.status === 409) {
@@ -176,7 +185,7 @@ export function sincronizar(): Promise<void> {
         }
       }
     } finally {
-      avisar({ enviando: false });
+      avisar({ enviando: false, ...(falhou ? {} : { travada: null }) });
     }
     if (falhou) tentarMaisTarde();
   })().finally(() => { rodando = null; });

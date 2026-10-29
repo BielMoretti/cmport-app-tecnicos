@@ -13,6 +13,12 @@ const RECUSADA: Record<Acao['tipo'], string> = {
   mensagem: 'A mensagem não foi aceita', audio: 'O áudio não foi aceito',
 };
 
+// a ação que não saiu do celular ("O check-in não saiu do celular: …")
+const ACAO: Record<Acao['tipo'], string> = {
+  checkin: 'O check-in', pausar: 'A pausa', retomar: 'A retomada', item: 'O item do checklist', foto: 'A foto',
+  concluir: 'A conclusão', mensagem: 'A mensagem', audio: 'O áudio',
+};
+
 function plural(n: number) {
   return n === 1 ? '1 ação' : `${n} ações`;
 }
@@ -21,7 +27,7 @@ function plural(n: number) {
 export default function AvisoDaFila({ osId }: { osId?: number }) {
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
-  const { itens, enviando, semSinal, semServidor } = useFila();
+  const { itens, enviando, semSinal, semServidor, travada } = useFila();
   const daqui = osId === undefined ? itens : itens.filter(i => i.acao.os === osId);
   if (!daqui.length) return null;
   const recusada: ItemDaFila | undefined = daqui.find(i => i.erro);
@@ -52,14 +58,26 @@ export default function AvisoDaFila({ osId }: { osId?: number }) {
       : semServidor
         ? `O servidor não respondeu: ${guardadas}. O app tenta de novo sozinho.`
         : `${plural(daqui.length)} esperando para enviar.`;
+  // a ação que não saiu, com o motivo do aparelho: diz o que travou e deixa tirar da frente
+  const parada = !enviando && (semSinal || semServidor) ? daqui.find(i => i.id === travada?.id) : undefined;
   return (
     <View style={[styles.faixa, { backgroundColor: cores.andamento.fundo }]} accessibilityLiveRegion="polite">
       <Text style={[styles.texto, { color: cores.andamento.texto }]}>{texto}</Text>
+      {parada && travada && (
+        <Text style={[styles.detalhe, { color: cores.andamento.texto }]}>
+          {ACAO[parada.acao.tipo]} não saiu do celular: {travada.motivo}
+        </Text>
+      )}
       {!enviando && (
         <View style={styles.botoes}>
           <Pressable onPress={() => { void tentarDeNovo(); }} accessibilityRole="button" hitSlop={8}>
             <Text style={[styles.botao, { color: cores.andamento.texto }]}>Enviar agora</Text>
           </Pressable>
+          {parada && (
+            <Pressable onPress={() => { void descartar(parada.id); }} accessibilityRole="button" hitSlop={8}>
+              <Text style={[styles.botao, { color: cores.textoSuave }]}>Descartar {ACAO[parada.acao.tipo].toLowerCase()}</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </View>
@@ -77,6 +95,7 @@ export function MarcaPendente({ quantas }: { quantas: number }) {
 const criarEstilos = (_c: Paleta) => StyleSheet.create({
   faixa: { borderRadius: raio.medio, padding: espaco[3], gap: espaco[2] },
   texto: { ...fontes.textoForte, fontSize: corpo.pequeno, lineHeight: 19 },
+  detalhe: { ...fontes.texto, fontSize: corpo.micro, lineHeight: 16 },
   botoes: { flexDirection: 'row', gap: espaco[5] },
   botao: { ...fontes.nome, fontSize: corpo.pequeno },
   marca: { ...fontes.textoForte, fontSize: corpo.micro },
