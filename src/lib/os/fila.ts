@@ -43,11 +43,11 @@ interface Estado {
   semSinal: boolean;
   /** a última tentativa tinha rede, mas o servidor não respondeu (ou demorou demais) */
   semServidor: boolean;
-  /** a ação que não saiu na última tentativa e o motivo técnico, para a faixa mostrar e poder descartar */
-  travada: { id: string; motivo: string } | null;
+  /** as ações que não saíram na última tentativa (id → motivo técnico): a faixa de cada tela mostra a dela e deixa descartar */
+  travadas: Record<string, string>;
 }
 
-let estado: Estado = { itens: [], enviando: false, semSinal: false, semServidor: false, travada: null };
+let estado: Estado = { itens: [], enviando: false, semSinal: false, semServidor: false, travadas: {} };
 let carregada: Promise<void> | null = null;
 const ouvintes = new Set<(e: Estado) => void>();
 
@@ -84,7 +84,10 @@ export async function enfileirar(acao: Acao): Promise<void> {
 export async function descartar(id: string): Promise<void> {
   const item = estado.itens.find(i => i.id === id);
   if (item?.acao.tipo === 'foto' || item?.acao.tipo === 'audio') apagarFotoDaFila(item.acao.uri);
-  if (estado.travada?.id === id) avisar({ travada: null });
+  if (id in estado.travadas) {
+    const { [id]: _, ...resto } = estado.travadas;
+    avisar({ travadas: resto });
+  }
   await gravar(estado.itens.filter(i => i.id !== id));
 }
 
@@ -143,10 +146,10 @@ export function sincronizar(): Promise<void> {
   rodando ??= (async () => {
     await carregarFila();
     if (espera) { clearTimeout(espera); espera = null; }
-    if (!estado.itens.length) { tentativas = 0; avisar({ semSinal: false, semServidor: false, travada: null }); return; }
+    if (!estado.itens.length) { tentativas = 0; avisar({ semSinal: false, semServidor: false, travadas: {} }); return; }
     avisar({ enviando: true });
     let falhou = false;
-    let travada: Estado['travada'] = null;
+    const travadas: Record<string, string> = {};
     const paradas = new Set<number>();   // OS com uma ação recusada ou que não saiu: as seguintes dela esperam
     try {
       for (const item of [...estado.itens]) {
@@ -164,8 +167,8 @@ export function sincronizar(): Promise<void> {
             const rede = await NetInfo.fetch().catch(() => null);
             const semRede = rede?.isConnected === false || rede?.isInternetReachable === false;
             const motivo = e instanceof Error ? (e instanceof ApiError ? e.message : `${e.name}: ${e.message}`) : String(e);
-            travada ??= { id: item.id, motivo };
-            avisar({ semSinal: semRede, semServidor: !semRede, travada });
+            travadas[item.id] = motivo;
+            avisar({ semSinal: semRede, semServidor: !semRede, travadas: { ...travadas } });
             falhou = true;
             // sem rede, nada vai sair agora; com rede, só esta OS espera e as outras seguem
             if (semRede) break;
@@ -185,7 +188,7 @@ export function sincronizar(): Promise<void> {
         }
       }
     } finally {
-      avisar({ enviando: false, ...(falhou ? {} : { travada: null }) });
+      avisar({ enviando: false, ...(falhou ? {} : { travadas: {} }) });
     }
     if (falhou) tentarMaisTarde();
   })().finally(() => { rodando = null; });
