@@ -1,6 +1,6 @@
 # Gera o app Android nos computadores do GitHub (de graça), sem gastar a cota de builds do Expo.
 # Usa o mesmo eas.json e as mesmas chaves de assinatura guardadas no Expo (EAS "local build").
-# Cópia do workflow do cmport-app-os, sem o passo do link público de teste (aquele é do outro app).
+# Cópia do workflow do cmport-app-os. O perfil preview também publica o APK num link público fixo (passo no fim).
 #
 # Como usar: aba Actions > "Gerar app Android" > Run workflow > escolher o perfil.
 #   production = .aab para enviar à Play Store
@@ -9,6 +9,8 @@
 #
 # Precisa do segredo EXPO_TOKEN (Settings > Secrets and variables > Actions), criado em
 # expo.dev > Account settings > Access tokens.
+# O link público de teste (só no perfil preview) precisa do segredo APK_TOKEN: token do GitHub com
+# permissão de escrita só no cmport-app-apk.
 name: Gerar app Android
 
 on:
@@ -84,3 +86,25 @@ jobs:
           name: cmport-tecnico-${{ inputs.perfil }}
           path: saida/*
           retention-days: 14
+
+      # APK de teste num link público e fixo, para abrir no celular e já baixar:
+      #   https://github.com/BielMoretti/cmport-app-apk/releases/download/teste/cmport-tecnico.apk
+      # Mesmo repositório e mesma versão "teste" do app de OS antigo, com nome próprio (cmport-tecnico.apk)
+      # para não substituir o cmport.apk dele.
+      # Precisa do segredo APK_TOKEN (token do GitHub com permissão de escrita só no cmport-app-apk).
+      - name: Publica o APK no link de teste
+        if: inputs.perfil == 'preview'
+        env:
+          GH_TOKEN: ${{ secrets.APK_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Falta o segredo APK_TOKEN: o APK ficou só nos Artifacts."
+            exit 0
+          fi
+          R=BielMoretti/cmport-app-apk
+          if ! gh release view teste -R "$R" > /dev/null 2>&1; then
+            echo "A versão 'teste' não existe em $R: o APK ficou só nos Artifacts."
+            exit 0
+          fi
+          cp saida/cmport-tecnico-preview.apk saida/cmport-tecnico.apk
+          gh release upload teste saida/cmport-tecnico.apk -R "$R" --clobber
