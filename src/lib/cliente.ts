@@ -4,6 +4,7 @@
  * dele, renova sozinho antes de vencer (POST /auth/renovar: o token dura 8 horas e o servidor
  * renova por até 30 dias desde o login) e avisa quando o servidor recusa o token.
  */
+import { parteDoArquivo } from './parteDoArquivo';
 
 export class ApiError extends Error {
   status: number;
@@ -146,13 +147,8 @@ export function criarCliente({ base, cabecalhos, tratar, semToken }: Opcoes) {
     async enviarArquivo<T>(path: string, arquivo: { uri: string; nome: string; tipo: string }, campos: Record<string, string>): Promise<T> {
       const form = new FormData();
       for (const [k, v] of Object.entries(campos)) form.append(k, v);
-      if (typeof window !== 'undefined' && /^(blob|data):/.test(arquivo.uri)) {
-        // navegador: o seletor e o redutor devolvem blob: ou data:
-        form.append('arquivo', await (await fetch(arquivo.uri)).blob(), arquivo.nome);
-      } else {
-        // aparelho: o React Native lê o arquivo local a partir do uri
-        form.append('arquivo', { uri: arquivo.uri, name: arquivo.nome, type: arquivo.tipo } as unknown as Blob);
-      }
+      // o arquivo vai como Blob (no aparelho, o File do expo-file-system: lib/parteDoArquivo.ts)
+      form.append('arquivo', await parteDoArquivo(arquivo.uri), arquivo.nome);
       // sem Content-Type: o fetch põe o multipart com o separador certo
       return pedir<T>(path, 'POST', {}, form, PRAZO_ARQUIVO_MS);
     },

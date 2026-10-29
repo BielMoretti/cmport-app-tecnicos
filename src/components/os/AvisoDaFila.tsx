@@ -27,7 +27,7 @@ function plural(n: number) {
 export default function AvisoDaFila({ osId }: { osId?: number }) {
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
-  const { itens, enviando, semSinal, semServidor, travada } = useFila();
+  const { itens, enviando, semSinal, semServidor, travadas } = useFila();
   const daqui = osId === undefined ? itens : itens.filter(i => i.acao.os === osId);
   if (!daqui.length) return null;
   const recusada: ItemDaFila | undefined = daqui.find(i => i.erro);
@@ -59,13 +59,13 @@ export default function AvisoDaFila({ osId }: { osId?: number }) {
         ? `O servidor não respondeu: ${guardadas}. O app tenta de novo sozinho.`
         : `${plural(daqui.length)} esperando para enviar.`;
   // a ação que não saiu, com o motivo do aparelho: diz o que travou e deixa tirar da frente
-  const parada = !enviando && (semSinal || semServidor) ? daqui.find(i => i.id === travada?.id) : undefined;
+  const parada = !enviando && (semSinal || semServidor) ? daqui.find(i => i.id in travadas) : undefined;
   return (
     <View style={[styles.faixa, { backgroundColor: cores.andamento.fundo }]} accessibilityLiveRegion="polite">
       <Text style={[styles.texto, { color: cores.andamento.texto }]}>{texto}</Text>
-      {parada && travada && (
+      {parada && (
         <Text style={[styles.detalhe, { color: cores.andamento.texto }]}>
-          {ACAO[parada.acao.tipo]} não saiu do celular: {travada.motivo}
+          {ACAO[parada.acao.tipo]} não saiu do celular: {travadas[parada.id]}
         </Text>
       )}
       {!enviando && (
