@@ -10,7 +10,7 @@
  *   GET   /os · GET /os/{id}
  *   POST  /os/{id}/checkin {em, lat, lng, precisao} · /pausar {em} · /retomar {em}
  *   PATCH /os/{id}/checklist/{item} {feito, em}
- *   POST  /os/{id}/fotos (multipart: arquivo, legenda, em, id_cliente)
+ *   POST  /os/{id}/fotos (multipart: arquivo, legenda, em, id_cliente, marcacoes; item_id = foto do item do checklist)
  *   POST  /os/{id}/concluir {em, relato, assinatura, lat, lng, precisao}
  *   POST  /os/{id}/mensagens {texto, em, id_cliente}
  *   POST  /os/{id}/audios (multipart: arquivo, em, id_cliente, duracao_s)
@@ -104,11 +104,12 @@ export function marcarItem(id: number, item: number, feito: boolean): Promise<Or
 }
 
 export async function anexarFoto(id: number, arquivo: { uri: string; nome: string; tipo: string }, legenda: string,
-  marcacoes?: TracoNaFoto[]): Promise<OrdemServico> {
+  marcacoes?: TracoNaFoto[], item?: number): Promise<OrdemServico> {
   const idCliente = novaIdentidade('f');
   // a foto espera sinal num lugar que sobrevive ao app fechar
   const uri = await guardarFotoDaFila(arquivo.uri, idCliente);
-  return agir({ tipo: 'foto', os: id, em: agora(), idCliente, uri, nome: arquivo.nome, tipoArquivo: arquivo.tipo, legenda, marcacoes });
+  // com item, a foto comprova aquele item do checklist e o servidor já o marca como feito
+  return agir({ tipo: 'foto', os: id, em: agora(), idCliente, uri, nome: arquivo.nome, tipoArquivo: arquivo.tipo, legenda, marcacoes, item });
 }
 
 /** Áudio na OS: o arquivo espera sinal nos documentos do app, como a foto. */
