@@ -45,6 +45,13 @@
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
+    "ios": {
+      "bundleIdentifier": "br.com.cmport.tecnico",
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
     "plugins": [
       "expo-router",
       "expo-secure-store",
