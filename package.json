@@ -57,6 +57,7 @@
     "build:dev": "eas build --profile development --platform android",
     "build:apk": "eas build --profile preview --platform android",
     "web": "expo start --web --port 3000",
+    "eas-build-pre-install": "npm install --global npm@11.8.0",
     "postinstall": "node scripts/gerar-pagina-do-gravador.js",
     "uso": "node scripts/uso-do-assistente.js"
   },
