@@ -21,6 +21,9 @@
       },
       "env": {
         "EXPO_PUBLIC_SITE": "https://tec.cmport.com.br"
+      },
+      "ios": {
+        "simulator": false
       }
     },
     "production": {
