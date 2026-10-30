@@ -22,7 +22,7 @@ import {
   retomar,
 } from '@/lib/os/ordens';
 import { componentes, corpo, espaco, fontes, raio, type Paleta } from '@/lib/tema';
-import { ROTULO_PRIORIDADE, type OrdemServico, type TracoNaFoto } from '@/lib/os/types';
+import { ROTULO_PRIORIDADE, type ItemDoChecklist, type OrdemServico, type TracoNaFoto } from '@/lib/os/types';
 
 function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
   const styles = useEstilos(criarEstilos);
@@ -79,7 +79,10 @@ export default function DetalheDaOS() {
     antes.current = daqui;
   }, [daqui, id, somenteVer]);
 
-  const [paraMarcar, setParaMarcar] = useState<{ uri: string; largura: number; altura: number; momento: 'Antes' | 'Depois' } | null>(null);
+  // momento (Antes/Depois) ou item do checklist: a foto é de um ou do outro
+  const [paraMarcar, setParaMarcar] = useState<{
+    uri: string; largura: number; altura: number; momento?: 'Antes' | 'Depois'; item?: ItemDoChecklist;
+  } | null>(null);
 
   async function agir(nome: string, acao: () => Promise<OrdemServico>) {
     setErro(null);
@@ -93,8 +96,9 @@ export default function DetalheDaOS() {
     }
   }
 
-  // Antes / Depois: a legenda diz o momento, e o servidor carimba data, hora e local na foto
-  async function tirarFoto(atual: OrdemServico, momento: 'Antes' | 'Depois') {
+  // Antes / Depois: a legenda diz o momento; item do checklist: a legenda é o texto do item.
+  // Nos dois casos o servidor carimba data, hora e local na foto
+  async function tirarFoto(alvo: 'Antes' | 'Depois' | ItemDoChecklist) {
     // no navegador não há câmera do sistema: escolhe um arquivo
     const pedido = Platform.OS === 'web'
       ? await ImagePicker.requestMediaLibraryPermissionsAsync()
@@ -105,7 +109,9 @@ export default function DetalheDaOS() {
     if (r.canceled || !r.assets[0]) return;
     const a = r.assets[0];
     // antes de enviar, a tela de marcar na foto (pode enviar sem marcar)
-    setParaMarcar({ uri: a.uri, largura: a.width, altura: a.height, momento });
+    setParaMarcar(typeof alvo === 'string'
+      ? { uri: a.uri, largura: a.width, altura: a.height, momento: alvo }
+      : { uri: a.uri, largura: a.width, altura: a.height, item: alvo });
   }
 
   async function enviarFoto(tracos: TracoNaFoto[]) {
@@ -113,7 +119,14 @@ export default function DetalheDaOS() {
     setParaMarcar(null);
     if (!f || !os) return;
     // reduz antes de subir (4 a 8 MB da câmera viram uns 300 KB): o servidor aceita até 3 MB
-    const n = os.fotos.filter(x => x.legenda.startsWith(f.momento)).length + 1;
+    if (f.item) {
+      const item = f.item;
+      // o servidor guarda a foto, liga ao item e marca o item como feito
+      await agir(`item-${item.id}`, async () =>
+        anexarFoto(os.id, await reduzirFoto(f.uri, f.largura), item.texto.slice(0, 120), tracos, item.id));
+      return;
+    }
+    const n = os.fotos.filter(x => x.legenda.startsWith(f.momento ?? '')).length + 1;
     await agir(`foto-${f.momento}`, async () => anexarFoto(os.id, await reduzirFoto(f.uri, f.largura), `${f.momento} ${n}`, tracos));
   }
 
@@ -208,21 +221,32 @@ export default function DetalheDaOS() {
 
         {os.checklist.length > 0 && (
           <Secao titulo="Checklist" extra={`${feitos} de ${os.checklist.length}`}>
-            {os.checklist.map(item => (
-              <Pressable
-                key={item.id}
-                disabled={!emAtendimento || !podeMexer}
-                onPress={() => agir(`item-${item.id}`, () => marcarItem(os.id, item.id, !item.feito))}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: item.feito, disabled: !emAtendimento || !podeMexer }}
-                style={styles.item}
-              >
-                <View style={[styles.caixa, item.feito && { backgroundColor: cores.azul, borderColor: cores.azul }]}>
-                  {item.feito && <Text style={styles.marca}>✓</Text>}
-                </View>
-                <Text style={[styles.itemTexto, item.feito && styles.itemFeito]}>{item.texto}</Text>
-              </Pressable>
-            ))}
+            {os.checklist.map(item => {
+              // pede foto e ainda não tem: o toque abre a câmera em vez de marcar
+              const pedeFoto = !!item.exige_foto && !item.feito && !item.foto_id;
+              const desativado = !emAtendimento || !podeMexer || !!ocupado;
+              return (
+                <Pressable
+                  key={item.id}
+                  disabled={desativado}
+                  onPress={() => (pedeFoto ? tirarFoto(item) : agir(`item-${item.id}`, () => marcarItem(os.id, item.id, !item.feito)))}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: item.feito, disabled: desativado }}
+                  accessibilityHint={pedeFoto ? 'Toque para tirar a foto deste item' : undefined}
+                  style={styles.item}
+                >
+                  <View style={[styles.caixa, item.feito && { backgroundColor: cores.azul, borderColor: cores.azul }]}>
+                    {item.feito && <Text style={styles.marca}>✓</Text>}
+                  </View>
+                  <Text style={[styles.itemTexto, item.feito && styles.itemFeito]}>{item.texto}</Text>
+                  {item.exige_foto && (
+                    <Text style={[styles.itemCamera, pedeFoto && { color: cores.azul }]} accessibilityElementsHidden>
+                      {pedeFoto ? '📷 foto' : 'foto ✓'}
+                    </Text>
+                  )}
+                </Pressable>
+              );
+            })}
             {podeMexer && os.situacao === 'aberta' && <Text style={styles.ajuda}>Faça o check-in para marcar os itens.</Text>}
           </Secao>
         )}
@@ -244,7 +268,7 @@ export default function DetalheDaOS() {
                 {(['Antes', 'Depois'] as const).map(m => (
                   <View key={m} style={{ flex: 1 }}>
                     <Botao tipo="secundario" rotulo={`Foto ${m.toLowerCase()}`}
-                      carregando={ocupado === `foto-${m}`} desativado={!!ocupado} onPress={() => tirarFoto(os, m)} />
+                      carregando={ocupado === `foto-${m}`} desativado={!!ocupado} onPress={() => tirarFoto(m)} />
                   </View>
                 ))}
               </View>
@@ -326,6 +350,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   marca: { color: c.sobreAzul, ...fontes.nome, fontSize: corpo.legenda, lineHeight: 18 },
   itemTexto: { flex: 1, ...fontes.texto, fontSize: corpo.base, color: c.texto },
   itemFeito: { color: c.textoSuave, textDecorationLine: 'line-through' },
+  itemCamera: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
   fotos: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco[2] },
   foto: { width: 96, height: 96, borderRadius: raio.pequeno, backgroundColor: c.superficieForte },
   legenda: { width: 96, ...fontes.texto, fontSize: corpo.micro, color: c.textoSuave },
