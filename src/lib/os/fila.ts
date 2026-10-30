@@ -128,7 +128,11 @@ function enviar(a: Acao): Promise<OrdemServico> {
     case 'item': return api(`/os/${a.os}/checklist/${a.item}`, { method: 'PATCH', body: { feito: a.feito, em: a.em } });
     case 'foto':
       return enviarArquivo(`/os/${a.os}/fotos`, { uri: a.uri, nome: a.nome, tipo: a.tipoArquivo },
-        { legenda: a.legenda, em: a.em, id_cliente: a.idCliente, ...(a.marcacoes?.length ? { marcacoes: JSON.stringify(a.marcacoes) } : {}) });
+        {
+          legenda: a.legenda, em: a.em, id_cliente: a.idCliente,
+          ...(a.marcacoes?.length ? { marcacoes: JSON.stringify(a.marcacoes) } : {}),
+          ...(a.item ? { item_id: String(a.item) } : {}),
+        });
     case 'audio':
       return enviarArquivo(`/os/${a.os}/audios`, { uri: a.uri, nome: a.nome, tipo: a.tipoArquivo },
         { em: a.em, id_cliente: a.idCliente, duracao_s: String(a.duracao) });
