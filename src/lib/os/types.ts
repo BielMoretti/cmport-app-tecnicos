@@ -48,6 +48,10 @@ export interface ItemDoChecklist {
   id: number;
   texto: string;
   feito: boolean;
+  /** só fica feito com a foto do próprio item (manutenção mensal); ausente em OS salva antes da versão nova */
+  exige_foto?: boolean;
+  /** a foto que comprova o item (id de um elemento de `fotos`; negativo = ainda no celular) */
+  foto_id?: number | null;
 }
 
 export interface Foto {

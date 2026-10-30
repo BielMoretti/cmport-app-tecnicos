@@ -10,7 +10,7 @@ export type Acao =
   | { tipo: 'checkin'; os: number; em: string; lat: number | null; lng: number | null; precisao: number | null }
   | { tipo: 'pausar' | 'retomar'; os: number; em: string }
   | { tipo: 'item'; os: number; item: number; feito: boolean; em: string }
-  | { tipo: 'foto'; os: number; em: string; idCliente: string; uri: string; nome: string; tipoArquivo: string; legenda: string; marcacoes?: TracoNaFoto[] }
+  | { tipo: 'foto'; os: number; em: string; idCliente: string; uri: string; nome: string; tipoArquivo: string; legenda: string; marcacoes?: TracoNaFoto[]; item?: number }
   | { tipo: 'mensagem'; os: number; em: string; idCliente: string; texto: string }
   | { tipo: 'audio'; os: number; em: string; idCliente: string; uri: string; nome: string; tipoArquivo: string; duracao: number }
   | {
@@ -58,16 +58,24 @@ export function aplicar(atual: OrdemServico, a: Acao): OrdemServico {
       exigir(os, ['andamento'], 'mexer no checklist');
       const item = os.checklist.find(i => i.id === a.item);
       if (!item) throw new ApiError(404, 'Item do checklist não encontrado.');
+      if (a.feito && item.exige_foto && !item.foto_id) throw new ApiError(409, `Tire a foto deste item para marcar: ${item.texto}`);
       item.feito = a.feito;
       break;
     }
-    case 'foto':
-      exigir(os, ['andamento', 'pausada'], 'anexar foto');
-      if (!os.fotos.some(f => f.url === a.uri)) {
+    case 'foto': {
+      // foto de item só com a OS em andamento; Antes e Depois também na pausada
+      const item = a.item ? os.checklist.find(i => i.id === a.item) : undefined;
+      if (a.item && !item) throw new ApiError(404, 'Item do checklist não encontrado.');
+      exigir(os, item ? ['andamento'] : ['andamento', 'pausada'], 'anexar foto');
+      let foto = os.fotos.find(f => f.url === a.uri);
+      if (!foto) {
         // id negativo = ainda no celular; a URL é o arquivo local até subir
-        os.fotos.push({ id: -(os.fotos.length + 1), url: a.uri, legenda: a.legenda, tirada_em: a.em });
+        foto = { id: -(os.fotos.length + 1), url: a.uri, legenda: a.legenda, tirada_em: a.em };
+        os.fotos.push(foto);
       }
+      if (item) { item.feito = true; item.foto_id = foto.id; }
       break;
+    }
     case 'mensagem':
       exigir(os, ['solicitada', 'aberta', 'andamento', 'pausada', 'concluida'], 'mandar mensagem');
       os.mensagens = [...(os.mensagens ?? []),
