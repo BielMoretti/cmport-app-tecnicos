@@ -68,6 +68,8 @@ export interface Assinatura {
   /** o traço, como caminho SVG ("M10 20 L12 22 …") numa área de 320×160 */
   traco: string;
   em: string;
+  /** onde e quando foi o toque em "Pronto" na assinatura (o servidor confere e mostra na dash) */
+  local?: Marcacao | null;
 }
 
 /** Áudio gravado na OS. id negativo = ainda no celular (a url é o arquivo local até subir). */
@@ -115,6 +117,8 @@ export interface OrdemServico {
   assinatura: Assinatura | null;
   /** o que o técnico escreveu ao concluir */
   relato: string;
+  /** o escritório liberou o técnico para concluir longe do condomínio (pela dash); ausente = não liberada */
+  liberada_longe?: boolean;
   /** até quando concluir, pela prioridade (nulo = esperando aprovação) */
   prazo_em?: string | null;
   /** posição na rota do dia que o escritório mandou (1 = a primeira) */

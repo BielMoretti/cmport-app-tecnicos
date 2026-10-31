@@ -3,12 +3,14 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CampoDeAssinatura } from '@/components/os/Assinatura';
+import { AssinarDeitado } from '@/components/os/Assinatura';
 import Comemoracao from '@/components/os/Comemoracao';
 import { Aviso, Botao, Campo, Topo } from '@/components/os/ui';
 import { useEstilos } from '@/contexts/TemaContext';
 import { marcarAqui } from '@/lib/os/local';
-import { concluir, listarOS, resumoDoDia, type ResumoDoDia } from '@/lib/os/ordens';
+import { assinaturaValeAinda, motivoLongeDoLocal, motivoLongeParaAssinar } from '@/lib/os/distancia';
+import type { Marcacao, OrdemServico } from '@/lib/os/types';
+import { buscarOS, concluir, listarOS, osNoCelular, resumoDoDia, type ResumoDoDia } from '@/lib/os/ordens';
 import { apagarRascunho, lerRascunho, salvarRascunho } from '@/lib/os/rascunho';
 import { componentes, corpo, espaco, fontes, type Paleta } from '@/lib/tema';
 
@@ -20,7 +22,8 @@ export default function ConcluirOS() {
   const [relato, setRelato] = useState('');
   const [nome, setNome] = useState('');
   const [traco, setTraco] = useState('');
-  const [desenhando, setDesenhando] = useState(false);
+  const [assinou, setAssinou] = useState<Marcacao | null>(null);
+  const [osAtual, setOsAtual] = useState<OrdemServico | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [concluida, setConcluida] = useState<{ numero: string; resumo: ResumoDoDia | null } | null>(null);
@@ -28,26 +31,29 @@ export default function ConcluirOS() {
   // rascunho: o app fechou no meio? volta com o que já estava escrito e assinado
   const [carregouRascunho, setCarregouRascunho] = useState(false);
   const [recuperado, setRecuperado] = useState<string | null>(null);
-  const [tracoInicial, setTracoInicial] = useState('');
   const concluindo = useRef(false);
   useEffect(() => {
     let vivo = true;
     void lerRascunho(Number(id)).then(r => {
       if (!vivo) return;
       if (r) {
-        setRelato(r.relato); setNome(r.nome); setTraco(r.traco); setTracoInicial(r.traco);
+        // assinatura sem registro de onde foi feita (rascunho antigo) não vale: assina de novo
+        setRelato(r.relato); setNome(r.nome);
+        if (r.assinou) { setTraco(r.traco); setAssinou(r.assinou); }
         setRecuperado(new Date(r.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       }
       setCarregouRascunho(true);
     });
     return () => { vivo = false; };
   }, [id]);
+  // a OS (com o ponto do condomínio) para conferir o local da assinatura
+  useEffect(() => { void osNoCelular(Number(id)).then(setOsAtual); }, [id]);
   // guarda meio segundo depois de parar de digitar ou desenhar
   useEffect(() => {
     if (!carregouRascunho || concluindo.current) return;
-    const t = setTimeout(() => { void salvarRascunho(Number(id), { relato, nome, traco }); }, 500);
+    const t = setTimeout(() => { void salvarRascunho(Number(id), { relato, nome, traco, assinou }); }, 500);
     return () => clearTimeout(t);
-  }, [id, relato, nome, traco, carregouRascunho]);
+  }, [id, relato, nome, traco, assinou, carregouRascunho]);
 
   const faltando = [
     !relato.trim() && 'o relato',
@@ -59,7 +65,20 @@ export default function ConcluirOS() {
     setErro(null);
     setEnviando(true);
     try {
-      const os = await concluir(Number(id), { relato: relato.trim(), assinatura: { nome: nome.trim(), traco }, aqui: await marcarAqui() });
+      // só fecha perto do condomínio: confere onde o celular está agora, antes de enviar
+      const aqui = await marcarAqui();
+      // busca a OS de novo: pode ter sido liberada pela dash depois da última vez; sem sinal, usa a guardada
+      const guardada = await buscarOS(Number(id)).catch(() => osNoCelular(Number(id)));
+      const longe = guardada ? motivoLongeDoLocal(guardada, aqui) : null;
+      if (longe) { setErro(longe); setEnviando(false); return; }
+      // a assinatura vale por 30 min (a OS liberada pelo escritório ignora o tempo): depois, assina de novo no local
+      if (guardada && !assinaturaValeAinda(guardada, assinou)) {
+        setTraco(''); setAssinou(null);
+        setErro('A assinatura passou de 30 minutos. Assine de novo no condomínio para concluir.');
+        setEnviando(false);
+        return;
+      }
+      const os = await concluir(Number(id), { relato: relato.trim(), assinatura: { nome: nome.trim(), traco, local: assinou }, aqui });
       // concluída (ou na fila sem sinal, que já guarda tudo): o rascunho não serve mais
       concluindo.current = true;
       await apagarRascunho(Number(id));
@@ -79,7 +98,6 @@ export default function ConcluirOS() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Topo titulo="Concluir OS" />
       <ScrollView
-        scrollEnabled={!desenhando}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.conteudo, { paddingBottom: margem.bottom + espaco[10] }]}
       >
@@ -97,7 +115,11 @@ export default function ConcluirOS() {
         <View style={{ gap: espaco[3] }}>
           <Text style={styles.rotulo}>Assinatura do cliente</Text>
           <Campo rotulo="Nome de quem assina" value={nome} onChangeText={setNome} placeholder="Ex.: Síndico, zelador, porteiro" autoCapitalize="words" />
-          <CampoDeAssinatura aoMudar={setTraco} aoDesenhar={setDesenhando} inicial={tracoInicial} />
+          <AssinarDeitado
+            traco={traco}
+            aoMudar={(t, m) => { setTraco(t); setAssinou(m); }}
+            conferir={aqui => (osAtual ? motivoLongeParaAssinar(osAtual, aqui) : null)}
+          />
         </View>
 
         {erro && <Aviso texto={erro} />}

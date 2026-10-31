@@ -5,12 +5,16 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { Marcacao } from './types';
+
 const PREFIXO = 'cmport_os_rascunho_';
 
 export interface Rascunho {
   relato: string;
   nome: string;
   traco: string;
+  /** onde e quando a assinatura foi feita (sem isso, o rascunho antigo não vale como assinatura) */
+  assinou?: Marcacao | null;
   em: string;
 }
 
