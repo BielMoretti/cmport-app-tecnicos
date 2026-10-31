@@ -126,7 +126,7 @@ export function mandarMensagem(id: number, texto: string): Promise<OrdemServico>
 
 export function concluir(
   id: number,
-  dados: { relato: string; assinatura: { nome: string; traco: string }; aqui: Marcacao },
+  dados: { relato: string; assinatura: { nome: string; traco: string; local?: Marcacao | null }; aqui: Marcacao },
 ): Promise<OrdemServico> {
   return agir({
     tipo: 'concluir', os: id, em: dados.aqui.em, relato: dados.relato, assinatura: dados.assinatura,
