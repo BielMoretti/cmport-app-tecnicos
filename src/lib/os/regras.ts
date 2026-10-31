@@ -4,7 +4,7 @@
  * sem sinal: a ação vai para a fila (lib/fila.ts) e a OS já aparece como vai ficar.
  */
 import { ApiError } from './api';
-import type { OrdemServico, Situacao, TracoNaFoto } from './types';
+import type { Marcacao, OrdemServico, Situacao, TracoNaFoto } from './types';
 
 export type Acao =
   | { tipo: 'checkin'; os: number; em: string; lat: number | null; lng: number | null; precisao: number | null }
@@ -14,7 +14,7 @@ export type Acao =
   | { tipo: 'mensagem'; os: number; em: string; idCliente: string; texto: string }
   | { tipo: 'audio'; os: number; em: string; idCliente: string; uri: string; nome: string; tipoArquivo: string; duracao: number }
   | {
-      tipo: 'concluir'; os: number; em: string; relato: string; assinatura: { nome: string; traco: string };
+      tipo: 'concluir'; os: number; em: string; relato: string; assinatura: { nome: string; traco: string; local?: Marcacao | null };
       lat: number | null; lng: number | null; precisao: number | null;
     };
 
