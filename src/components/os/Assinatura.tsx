@@ -3,10 +3,13 @@
  * fixa de 320×160 (types.ts, Assinatura.traco), qualquer que seja o tamanho da tela.
  */
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import Svg, { Path } from 'react-native-svg';
 
 import { useEstilos, useTema } from '@/contexts/TemaContext';
+import { marcarAqui } from '@/lib/os/local';
+import type { Marcacao } from '@/lib/os/types';
 import { corpo, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
 
 export const AREA = { largura: 320, altura: 160 } as const;
@@ -70,7 +73,87 @@ export function CampoDeAssinatura({ aoMudar, aoDesenhar, inicial = '' }: {
   );
 }
 
+/**
+ * Assinar com o celular deitado: abre uma tela cheia em paisagem com a área grande e devolve
+ * o aparelho à rotação normal ao fechar. Mostra a assinatura já feita e o botão de refazer.
+ */
+export function AssinarDeitado({ traco, aoMudar, conferir }: {
+  traco: string;
+  /** a assinatura confirmada, com onde e quando foi feita */
+  aoMudar: (traco: string, marca: Marcacao | null) => void;
+  /** texto do porquê não pode assinar aqui (longe do condomínio); null = pode */
+  conferir: (aqui: Marcacao) => string | null;
+}) {
+  const styles = useEstilos(criarEstilos);
+  const [aberto, setAberto] = useState(false);
+  const [rascunho, setRascunho] = useState(traco);
+  const [conferindo, setConferindo] = useState(false);
+  const [recusa, setRecusa] = useState<string | null>(null);
+
+  const abrir = () => {
+    setRascunho(traco);
+    setRecusa(null);
+    setAberto(true);
+    if (Platform.OS !== 'web') void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+  };
+  const sair = () => {
+    setAberto(false);
+    if (Platform.OS !== 'web') void ScreenOrientation.unlockAsync().catch(() => {});
+  };
+  // "Pronto": só vale se o celular está perto do condomínio agora
+  const confirmar = async () => {
+    setConferindo(true);
+    setRecusa(null);
+    const aqui = await marcarAqui();
+    setConferindo(false);
+    const motivo = conferir(aqui);
+    if (motivo) { setRecusa(motivo); return; }
+    aoMudar(rascunho, aqui);
+    sair();
+  };
+
+  return (
+    <View style={{ gap: espaco[2] }}>
+      <Pressable onPress={abrir} accessibilityRole="button" accessibilityLabel="Abrir a assinatura em tela cheia" style={styles.previa}>
+        {traco
+          ? <VerAssinatura traco={traco} />
+          : <Text style={styles.dica2}>Toque para assinar (a tela vira de lado)</Text>}
+      </Pressable>
+      {!!traco && (
+        <Pressable onPress={abrir} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'flex-end' }}>
+          <Text style={styles.limpar}>Assinar de novo</Text>
+        </Pressable>
+      )}
+      <Modal visible={aberto} animationType="fade" supportedOrientations={['landscape', 'landscape-left', 'landscape-right']}
+        onRequestClose={sair}>
+        <View style={styles.deitado}>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            {/* a maior área 2:1 que cabe na altura da tela deitada */}
+            <View style={{ height: '100%', aspectRatio: AREA.largura / AREA.altura, maxWidth: '100%' }}>
+              <CampoDeAssinatura aoMudar={setRascunho} inicial={rascunho} />
+            </View>
+          </View>
+          {!!recusa && <Text style={styles.recusa}>{recusa}</Text>}
+          <View style={styles.rodape}>
+            <Pressable onPress={sair} accessibilityRole="button" hitSlop={8}>
+              <Text style={styles.limpar}>Cancelar</Text>
+            </Pressable>
+            <Pressable onPress={() => void confirmar()} disabled={!rascunho || conferindo} accessibilityRole="button" hitSlop={8}>
+              <Text style={[styles.limpar, (!rascunho || conferindo) && { opacity: 0.4 }]}>{conferindo ? 'Conferindo o local…' : 'Pronto'}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 const criarEstilos = (c: Paleta) => StyleSheet.create({
+  previa: { ...vidro(c, 'forte'), borderRadius: raio.medio, minHeight: 120, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  dica2: { ...fontes.texto, fontSize: corpo.base, color: c.textoSuave },
+  deitado: { flex: 1, backgroundColor: c.fundo, padding: espaco[4], gap: espaco[3] },
+  recusa: { ...fontes.texto, fontSize: corpo.pequeno, color: c.erro },
+  rodape: { flexDirection: 'row', justifyContent: 'space-between' },
   area: { ...vidro(c, 'forte'), borderRadius: raio.medio, aspectRatio: AREA.largura / AREA.altura, width: '100%', overflow: 'hidden' },
   dica: { position: 'absolute', alignSelf: 'center', top: '40%', ...fontes.texto, fontSize: corpo.base, color: c.textoSuave },
   linhaBase: { position: 'absolute', left: '8%', right: '8%', bottom: '22%', height: 1, backgroundColor: c.linha },
