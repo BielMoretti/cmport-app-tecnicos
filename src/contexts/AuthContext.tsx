@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   const logout = useCallback(() => encerrar(true), [encerrar]);
 
-  // token renovado por um dos serviços (dura 8 horas; o servidor renova por até 30 dias): grava o novo
+  // token renovado por um dos serviços (dura 90 dias; cada renovação dá mais 90): grava o novo
   useEffect(() => {
     ordens.setAoRenovar(nova => setUsuario(atual => {
       if (!atual) return atual;
