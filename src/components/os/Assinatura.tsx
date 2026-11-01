@@ -3,10 +3,11 @@
  * fixa de 320×160 (types.ts, Assinatura.traco), qualquer que seja o tamanho da tela.
  */
 import { useRef, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import Svg, { Path } from 'react-native-svg';
 
+import { Botao } from '@/components/os/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { marcarAqui } from '@/lib/os/local';
 import type { Marcacao } from '@/lib/os/types';
@@ -89,6 +90,10 @@ export function AssinarDeitado({ traco, aoMudar, conferir }: {
   const [rascunho, setRascunho] = useState(traco);
   const [conferindo, setConferindo] = useState(false);
   const [recusa, setRecusa] = useState<string | null>(null);
+  // Se o sistema não deitou a janela (trava de rotação, aparelho que ignora o pedido), o desenho vira 90° por conta
+  // própria: a pessoa gira o celular e assina deitada do mesmo jeito. Janela já deitada = layout normal.
+  const { width: larguraJanela, height: alturaJanela } = useWindowDimensions();
+  const emPe = alturaJanela > larguraJanela;
 
   const abrir = () => {
     setRascunho(traco);
@@ -124,9 +129,13 @@ export function AssinarDeitado({ traco, aoMudar, conferir }: {
           <Text style={styles.limpar}>Assinar de novo</Text>
         </Pressable>
       )}
-      <Modal visible={aberto} animationType="fade" supportedOrientations={['landscape', 'landscape-left', 'landscape-right']}
+      <Modal visible={aberto} animationType="fade" statusBarTranslucent supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}
         onRequestClose={sair}>
-        <View style={styles.deitado}>
+        <View style={styles.tela}>
+        <View style={emPe
+          ? { position: 'absolute', width: alturaJanela, height: larguraJanela, left: (larguraJanela - alturaJanela) / 2, top: (alturaJanela - larguraJanela) / 2, transform: [{ rotate: '90deg' }] }
+          : { flex: 1 }}>
+        <View style={[styles.deitado, emPe && { paddingHorizontal: espaco[10], paddingVertical: espaco[6] }]}>
           <View style={{ flex: 1, alignItems: 'center' }}>
             {/* a maior área 2:1 que cabe na altura da tela deitada */}
             <View style={{ height: '100%', aspectRatio: AREA.largura / AREA.altura, maxWidth: '100%' }}>
@@ -134,14 +143,15 @@ export function AssinarDeitado({ traco, aoMudar, conferir }: {
             </View>
           </View>
           {!!recusa && <Text style={styles.recusa}>{recusa}</Text>}
+          {/* botões grandes e afastados da borda: o polegar de quem segura o celular deitado alcança fácil */}
           <View style={styles.rodape}>
-            <Pressable onPress={sair} accessibilityRole="button" hitSlop={8}>
-              <Text style={styles.limpar}>Cancelar</Text>
-            </Pressable>
-            <Pressable onPress={() => void confirmar()} disabled={!rascunho || conferindo} accessibilityRole="button" hitSlop={8}>
-              <Text style={[styles.limpar, (!rascunho || conferindo) && { opacity: 0.4 }]}>{conferindo ? 'Conferindo o local…' : 'Pronto'}</Text>
-            </Pressable>
+            <View style={{ flex: 1 }}><Botao rotulo="Cancelar" tipo="secundario" onPress={sair} /></View>
+            <View style={{ flex: 2 }}>
+              <Botao rotulo={conferindo ? 'Conferindo o local…' : 'Pronto'} onPress={() => void confirmar()} desativado={!rascunho || conferindo} />
+            </View>
           </View>
+        </View>
+        </View>
         </View>
       </Modal>
     </View>
@@ -151,9 +161,10 @@ export function AssinarDeitado({ traco, aoMudar, conferir }: {
 const criarEstilos = (c: Paleta) => StyleSheet.create({
   previa: { ...vidro(c, 'forte'), borderRadius: raio.medio, minHeight: 120, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   dica2: { ...fontes.texto, fontSize: corpo.base, color: c.textoSuave },
-  deitado: { flex: 1, backgroundColor: c.fundo, padding: espaco[4], gap: espaco[3] },
+  tela: { flex: 1, backgroundColor: c.fundo },
+  deitado: { flex: 1, backgroundColor: c.fundo, paddingHorizontal: espaco[8], paddingVertical: espaco[4], gap: espaco[3] },
   recusa: { ...fontes.texto, fontSize: corpo.pequeno, color: c.erro },
-  rodape: { flexDirection: 'row', justifyContent: 'space-between' },
+  rodape: { flexDirection: 'row', gap: espaco[4], alignItems: 'center' },
   area: { ...vidro(c, 'forte'), borderRadius: raio.medio, aspectRatio: AREA.largura / AREA.altura, width: '100%', overflow: 'hidden' },
   dica: { position: 'absolute', alignSelf: 'center', top: '40%', ...fontes.texto, fontSize: corpo.base, color: c.textoSuave },
   linhaBase: { position: 'absolute', left: '8%', right: '8%', bottom: '22%', height: 1, backgroundColor: c.linha },
