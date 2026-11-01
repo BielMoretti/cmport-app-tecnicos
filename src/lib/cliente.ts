@@ -1,8 +1,8 @@
 /**
  * Molde dos clientes de API do app. São dois serviços no mesmo endereço, cada um com o próprio
  * token: câmeras (lib/api.ts) e ordens de serviço (lib/os/api.ts). Cada cliente guarda o token
- * dele, renova sozinho antes de vencer (POST /auth/renovar: o token dura 8 horas e o servidor
- * renova por até 30 dias desde o login) e avisa quando o servidor recusa o token.
+ * dele, renova sozinho antes de vencer (POST /auth/renovar: o token dura 90 dias e cada renovação
+ * dá mais 90) e avisa quando o servidor recusa o token.
  */
 import { parteDoArquivo } from './parteDoArquivo';
 
@@ -30,7 +30,8 @@ interface Opcoes {
   semToken?: string;
 }
 
-const UMA_HORA_MS = 60 * 60 * 1000;
+// o token dura 90 dias; com menos de 60 dias de sobra (30 dias de uso) troca por um novo: quem usa o app não cai
+const RENOVAR_ANTES_MS = 60 * 24 * 60 * 60 * 1000;
 // sem resposta neste prazo, desiste: um pedido preso (Wi-Fi que caiu no meio, servidor reiniciando)
 // não pode segurar a fila do celular para sempre. Arquivo tem mais tempo: a foto sobe devagar no 3G.
 const PRAZO_MS = 30_000;
@@ -113,8 +114,8 @@ export function criarCliente({ base, cabecalhos, tratar, semToken }: Opcoes) {
     prazoMs = PRAZO_MS): Promise<T> {
     const login = path === '/auth/login';
     if (!token && !login && semToken) throw new ApiError(401, semToken);
-    // falta menos de uma hora: renova antes, para o pedido não bater num token vencido
-    if (token && !login && venceEm(token, UMA_HORA_MS)) await renovarSessao();
+    // passou de 30 dias do token: renova antes, para o pedido não bater num token vencido
+    if (token && !login && venceEm(token, RENOVAR_ANTES_MS)) await renovarSessao();
     const headers: Record<string, string> = { Accept: 'application/json', ...(await cabecalhos?.()), ...extra };
     if (token && !login) headers.Authorization = `Bearer ${token}`;
 
