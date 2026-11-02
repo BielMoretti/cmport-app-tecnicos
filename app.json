@@ -12,6 +12,7 @@
     "userInterfaceStyle": "dark",
     "android": {
       "package": "br.com.cmport.tecnico",
+      "googleServicesFile": "./google-services.json",
       "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#EEF2F7",
