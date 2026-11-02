@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Linking, ScrollView, StyleSheet, Text, View } fro
 import Constants from 'expo-constants';
 
 import { BarraCarregando, Toque } from '@/components/efeitos';
-import { Botao, confirmar, LinhaInfo, Mensagem, Secao } from '@/components/formulario';
+import { Alternador, Botao, confirmar, LinhaInfo, Mensagem, Secao } from '@/components/formulario';
 import AvisoDaFila from '@/components/os/AvisoDaFila';
 import { Avatar, Cartao, TopoDaAba } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,7 @@ import { useEstilos } from '@/contexts/TemaContext';
 import { NOME_DO_PAPEL } from '@/lib/acesso';
 import { ApiError } from '@/lib/api';
 import { POLITICA_DE_PRIVACIDADE, TERMOS_DE_USO } from '@/lib/config';
+import { biometriaDisponivel, biometriaLigada, ligarBiometria, pedirBiometria } from '@/lib/biometria';
 import { apagarFoto, escolherFoto, salvarFoto } from '@/lib/foto';
 import { useFila } from '@/lib/os/fila';
 import { buscarPerfil, type Perfil } from '@/lib/perfil';
@@ -87,6 +88,19 @@ export default function ContaScreen() {
 
   const papel = perfil?.role ?? usuario?.role;
 
+  const [podeBiometria, setPodeBiometria] = useState(false);
+  const [biometria, setBiometria] = useState(false);
+  useEffect(() => {
+    void biometriaDisponivel().then(setPodeBiometria);
+    void biometriaLigada().then(setBiometria);
+  }, []);
+  async function mudarBiometria(ligar: boolean) {
+    // confirma antes de ligar, para não se trancar fora do app
+    if (ligar && !(await pedirBiometria('Ligar o bloqueio por biometria'))) return;
+    await ligarBiometria(ligar);
+    setBiometria(ligar);
+  }
+
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.tela}>
       <BarraCarregando ativa={carregando} />
@@ -126,6 +140,17 @@ export default function ContaScreen() {
         <Secao titulo="Nome e senha">
           <Mensagem texto="São os da sua conta de técnico, cadastrada pelo escritório. Para mudar, fale com o escritório." />
         </Secao>
+
+        {podeBiometria && (
+          <Secao titulo="Segurança">
+            <Alternador
+              rotulo="Pedir biometria ao abrir"
+              descricao="Digital, rosto ou a senha do celular ao abrir o app e ao voltar depois de 1 minuto."
+              valor={biometria}
+              onChange={novo => { void mudarBiometria(novo); }}
+            />
+          </Secao>
+        )}
 
         <Secao titulo="Sobre">
           <View>
