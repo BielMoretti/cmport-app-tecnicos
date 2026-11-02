@@ -9,6 +9,7 @@ import { GravarAudio, TocarAudio } from '@/components/os/AudioDaOS';
 import AvisoDaFila from '@/components/os/AvisoDaFila';
 import Cronometro from '@/components/os/Cronometro';
 import MarcarFoto from '@/components/os/MarcarFoto';
+import { avisoDeEspaco } from '@/lib/espaco';
 import { Aviso, Botao, Campo, Carregando, Cartao, SeloSituacao, Topo } from '@/components/os/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { urlAbsoluta } from '@/lib/config';
@@ -162,6 +163,7 @@ export default function DetalheDaOS() {
         </View>
 
         {erro && <Aviso texto={erro} />}
+        {avisoDeEspaco() && <Aviso tipo="info" texto={avisoDeEspaco()!} />}
         {somenteVer
           ? <Aviso tipo="info" texto="Só para consulta: daqui não dá para mudar nada nesta OS." />
           : <AvisoDaFila osId={os.id} />}

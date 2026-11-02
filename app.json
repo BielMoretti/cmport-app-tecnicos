@@ -55,6 +55,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      ["expo-local-authentication", { "faceIDPermission": "Usar o rosto para abrir o CMPort Técnico." }],
       "expo-build-properties",
       "@config-plugins/react-native-webrtc",
       "expo-font",

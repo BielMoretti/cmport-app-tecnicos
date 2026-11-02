@@ -15,11 +15,12 @@ import { TemaProvider, useTema } from '@/contexts/TemaContext';
 import { ehAdministrador } from '@/lib/acesso';
 import { registrarAvisos, useAvisoAbreOS } from '@/lib/os/avisos';
 import { vigiarConexao } from '@/lib/os/fila';
+import Bloqueio from '@/components/Bloqueio';
 import { Tela } from '@/components/ui';
 import { corpo, fontes } from '@/lib/tema';
 
 function Rotas() {
-  const { usuario, carregando, permissoesVistas } = useAuth();
+  const { usuario, carregando, permissoesVistas, bloqueado } = useAuth();
   const { cores } = useTema();
   // primeiro acesso, nesta ordem: criar a senha → aceitar os termos → permissões → o app
   const senhaOk = !!usuario && !usuario.trocarSenha;
@@ -47,6 +48,9 @@ function Rotas() {
       </View>
     );
   }
+
+  // biometria ligada e ainda não confirmada: nada do app aparece
+  if (usuario && bloqueado) return <><StatusBar style="light" /><Bloqueio /></>;
 
   return (
     <>
