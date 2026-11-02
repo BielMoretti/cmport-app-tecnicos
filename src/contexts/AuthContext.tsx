@@ -104,13 +104,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const encerrar = useCallback(async (apagarDados: boolean) => {
     // ainda com a sessão: o aparelho para de receber os avisos de quem está saindo
     if (apagarDados) await desligarAvisos();
+    // sair de verdade: o servidor derruba os tokens que ainda valem (uma cópia do token não serve mais).
+    // Sem sinal, sai assim mesmo: espera no máximo 3 s
+    if (apagarDados) await Promise.race([ordens.api('/auth/sair', { method: 'POST' }).catch(() => {}), new Promise(r => setTimeout(r, 3000))]);
     senhaDoLogin.current = null;
     ordens.setToken(null);
     cameras.setToken(null);
     setUsuario(null);
     definirFoto(null);
     await apagarItem(CHAVE_SESSAO).catch(() => {});
-    if (apagarDados) await limparDoCelular().catch(() => {});
+    if (apagarDados) {
+      await limparDoCelular().catch(() => {});
+      await apagarItem('cmport_recentes').catch(() => {});   // câmeras recentes são de quem saiu
+    }
   }, []);
   const logout = useCallback(() => encerrar(true), [encerrar]);
 
