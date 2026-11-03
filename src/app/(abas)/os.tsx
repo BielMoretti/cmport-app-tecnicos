@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { Aviso, Cartao, LogoPlaca, SeloSituacao, Tela } from '@/components/os/ui
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { pendentesDaOS, useFila } from '@/lib/os/fila';
+import { bateComBusca } from '@/lib/os/busca';
 import { listarOS, ordenarOS, quando } from '@/lib/os/ordens';
 import { componentes, corpo, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
 import { ROTULO_PRIORIDADE, type OrdemServico } from '@/lib/os/types';
@@ -112,6 +113,7 @@ export default function MinhasOS() {
   const [erro, setErro] = useState<string | null>(null);
   const [atualizando, setAtualizando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('abertas');
+  const [busca, setBusca] = useState('');
   const [diaEscolhido, setDiaEscolhido] = useState(0);
   const [semSinalDesde, setSemSinalDesde] = useState<string | null>(null);
   const fila = useFila();
@@ -143,7 +145,7 @@ export default function MinhasOS() {
     setAtualizando(false);
   }
 
-  const visiveis = useMemo(() => (lista ?? []).filter(os => passaNoFiltro(os, filtro)), [lista, filtro]);
+  const visiveis = useMemo(() => (lista ?? []).filter(os => passaNoFiltro(os, filtro) && bateComBusca(os, busca)), [lista, filtro, busca]);
   const aFazer = useMemo(() => (lista ?? []).filter(os => passaNoFiltro(os, 'abertas')).length, [lista]);
   const primeiroNome = usuario?.nome.split(' ')[0] ?? '';
   const dias = useMemo(() => semana(visiveis), [visiveis]);
@@ -179,6 +181,17 @@ export default function MinhasOS() {
           </View>
         </View>
       )}
+      <TextInput
+        value={busca}
+        onChangeText={setBusca}
+        placeholder="Buscar por condomínio, endereço ou número"
+        placeholderTextColor={cores.textoSuave}
+        accessibilityLabel="Buscar OS"
+        returnKeyType="search"
+        clearButtonMode="while-editing"
+        autoCorrect={false}
+        style={[styles.busca, vidro(cores)]}
+      />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: espaco[2] }}>
         {FILTROS.map(f => {
           const ativo = f.valor === filtro;
@@ -274,6 +287,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   ola: { ...fontes.texto, fontSize: corpo.base, color: c.textoSuave },
   resumo: { ...fontes.nome, fontSize: corpo.titulo, color: c.texto },
   chip: { height: componentes.chip.altura, borderRadius: componentes.chip.raio, paddingHorizontal: componentes.chip.respiroH, justifyContent: 'center', borderWidth: 1 },
+  busca: { ...fontes.texto, fontSize: corpo.base, color: c.texto, height: componentes.chip.altura + 8, borderRadius: componentes.chip.raio, paddingHorizontal: componentes.chip.respiroH, borderWidth: 1 },
   chipTexto: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.texto },
   linhaTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: espaco[2] },
   numero: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave, fontVariant: ['tabular-nums'] },

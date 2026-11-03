@@ -14,6 +14,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import * as cameras from '@/lib/api';
 import { apagarItem, lerItem, salvarItem } from '@/lib/armazenamento';
+import { biometriaDisponivel, biometriaLigada, ligarBiometria, useBloquearAoVoltar } from '@/lib/biometria';
 import { venceEm } from '@/lib/cliente';
 import { buscarFoto } from '@/lib/foto';
 import { desligarAvisos } from '@/lib/os/avisos';
@@ -51,6 +52,9 @@ interface Sessao {
 interface AuthContextValue {
   usuario: Sessao | null;
   carregando: boolean;
+  /** a biometria está ligada e ainda não foi confirmada: só a tela de bloqueio abre */
+  bloqueado: boolean;
+  desbloquear: () => void;
   login: (email: string, senha: string) => Promise<void>;
   /** sair da conta: apaga a fila e as OS guardadas no aparelho (são de quem saiu) */
   logout: () => Promise<void>;
@@ -87,6 +91,10 @@ async function entrarNasCameras(email: string, senha: string): Promise<{ token: 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Sessao | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [bloqueado, setBloqueado] = useState(false);
+  const desbloquear = useCallback(() => setBloqueado(false), []);
+  const bloquear = useCallback(() => setBloqueado(true), []);
+  useBloquearAoVoltar(!!usuario, bloquear);
   // nunca é gravada: serve só para a troca obrigatória não pedir de novo a senha recém-digitada
   const senhaDoLogin = useRef<string | null>(null);
   const [permissoesVistas, setPermissoesVistas] = useState(true);
@@ -108,6 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Sem sinal, sai assim mesmo: espera no máximo 3 s
     if (apagarDados) await Promise.race([ordens.api('/auth/sair', { method: 'POST' }).catch(() => {}), new Promise(r => setTimeout(r, 3000))]);
     senhaDoLogin.current = null;
+    setBloqueado(false);
+    if (apagarDados) await ligarBiometria(false);
     ordens.setToken(null);
     cameras.setToken(null);
     setUsuario(null);
@@ -159,6 +169,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           cameras.setToken(null);
           sessao.token = null;
         }
+        // biometria ligada neste aparelho: abre travado até confirmar
+        if ((await biometriaLigada()) && (await biometriaDisponivel())) setBloqueado(true);
         setUsuario(sessao);
       } catch {
         /* sessão corrompida — segue deslogado */
@@ -260,9 +272,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [usuario, guardar]);
 
   const valor = useMemo(() => ({
-    usuario, carregando, login, logout, criarSenha, senhaInicial, aceitarTermos, permissoesVistas, concluirPermissoes,
+    usuario, carregando, bloqueado, desbloquear, login, logout, criarSenha, senhaInicial, aceitarTermos, permissoesVistas, concluirPermissoes,
     atualizarSessao, foto, definirFoto,
-  }), [usuario, carregando, login, logout, criarSenha, senhaInicial, aceitarTermos, permissoesVistas, concluirPermissoes, atualizarSessao, foto]);
+  }), [usuario, carregando, bloqueado, desbloquear, login, logout, criarSenha, senhaInicial, aceitarTermos, permissoesVistas, concluirPermissoes, atualizarSessao, foto]);
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;
 }
