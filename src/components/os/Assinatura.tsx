@@ -25,7 +25,9 @@ export function VerAssinatura({ traco }: { traco: string }) {
   );
 }
 
-export function CampoDeAssinatura({ aoMudar, aoDesenhar, inicial = '' }: {
+export function CampoDeAssinatura({ aoMudar, aoDesenhar, inicial = '', semApagar = false }: {
+  /** esconde o link "Apagar": quem usa o campo já tem o próprio botão de limpar (a tela deitada) */
+  semApagar?: boolean;
   /** o traço atual ('' = vazio) */
   aoMudar: (traco: string) => void;
   /** true enquanto o dedo está na área: quem tem rolagem trava a rolagem */
@@ -65,7 +67,7 @@ export function CampoDeAssinatura({ aoMudar, aoDesenhar, inicial = '' }: {
         {!traco && <Text style={styles.dica} pointerEvents="none">Assine aqui</Text>}
         <View style={styles.linhaBase} pointerEvents="none" />
       </View>
-      {!!traco && (
+      {!!traco && !semApagar && (
         <Pressable onPress={() => mudar('')} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'flex-end' }}>
           <Text style={styles.limpar}>Apagar e assinar de novo</Text>
         </Pressable>
@@ -88,6 +90,8 @@ export function AssinarDeitado({ traco, aoMudar, conferir }: {
   const styles = useEstilos(criarEstilos);
   const [aberto, setAberto] = useState(false);
   const [rascunho, setRascunho] = useState(traco);
+  // trocar a chave refaz o campo em branco (o traço mora dentro dele)
+  const [versaoCampo, setVersaoCampo] = useState(0);
   const [conferindo, setConferindo] = useState(false);
   const [recusa, setRecusa] = useState<string | null>(null);
   // Se o sistema não deitou a janela (trava de rotação, aparelho que ignora o pedido), o desenho vira 90° por conta
@@ -139,13 +143,16 @@ export function AssinarDeitado({ traco, aoMudar, conferir }: {
           <View style={{ flex: 1, alignItems: 'center' }}>
             {/* a maior área 2:1 que cabe na altura da tela deitada */}
             <View style={{ height: '100%', aspectRatio: AREA.largura / AREA.altura, maxWidth: '100%' }}>
-              <CampoDeAssinatura aoMudar={setRascunho} inicial={rascunho} />
+              <CampoDeAssinatura key={versaoCampo} aoMudar={setRascunho} inicial={rascunho} semApagar />
             </View>
           </View>
           {!!recusa && <Text style={styles.recusa}>{recusa}</Text>}
           {/* botões grandes e afastados da borda: o polegar de quem segura o celular deitado alcança fácil */}
           <View style={styles.rodape}>
             <View style={{ flex: 1 }}><Botao rotulo="Cancelar" tipo="secundario" onPress={sair} /></View>
+            <View style={{ flex: 1 }}>
+              <Botao rotulo="Limpar" tipo="secundario" onPress={() => { setRascunho(''); setRecusa(null); setVersaoCampo(v => v + 1); }} desativado={!rascunho || conferindo} />
+            </View>
             <View style={{ flex: 2 }}>
               <Botao rotulo={conferindo ? 'Conferindo o local…' : 'Pronto'} onPress={() => void confirmar()} desativado={!rascunho || conferindo} />
             </View>
