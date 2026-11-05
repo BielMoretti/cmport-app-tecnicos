@@ -63,3 +63,7 @@ cmport.jpg
 
 # página do gravador de vídeo: gerada no npm install (scripts/gerar-pagina-do-gravador.js)
 src/lib/gravador/pagina.ts
+
+# Chaves do Firebase: nunca no Git (usar segredo de arquivo do EAS)
+google-services.json
+GoogleService-Info.plist
