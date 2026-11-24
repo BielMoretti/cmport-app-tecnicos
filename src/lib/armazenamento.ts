@@ -5,9 +5,17 @@ import * as SecureStore from 'expo-secure-store';
 // fica no localStorage (só pra desenvolvimento; o app de verdade é o Android).
 const web = Platform.OS === 'web';
 
+// iOS: sem esta opção o item do keychain entra no backup (iCloud ou cifrado) e abre logado em
+// outro iPhone. "ThisDeviceOnly" fica neste aparelho; "AfterFirstUnlock" deixa o app ler o token
+// em segundo plano (aviso, envio da fila). No Android a opção é ignorada.
+const OPCOES = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
+
 export async function lerItem(chave: string): Promise<string | null> {
   if (web) return globalThis.localStorage?.getItem(chave) ?? null;
-  return SecureStore.getItemAsync(chave);
+  const valor = await SecureStore.getItemAsync(chave, OPCOES);
+  // Item gravado por versão antiga mantém o atributo velho: regrava uma vez com o novo.
+  if (valor !== null) void SecureStore.setItemAsync(chave, valor, OPCOES).catch(() => {});
+  return valor;
 }
 
 export async function salvarItem(chave: string, valor: string): Promise<void> {
@@ -15,7 +23,7 @@ export async function salvarItem(chave: string, valor: string): Promise<void> {
     globalThis.localStorage?.setItem(chave, valor);
     return;
   }
-  await SecureStore.setItemAsync(chave, valor);
+  await SecureStore.setItemAsync(chave, valor, OPCOES);
 }
 
 export async function apagarItem(chave: string): Promise<void> {
