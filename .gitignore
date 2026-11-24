@@ -67,3 +67,10 @@ src/lib/gravador/pagina.ts
 # Chaves do Firebase: nunca no Git (usar segredo de arquivo do EAS)
 google-services.json
 GoogleService-Info.plist
+
+# Segredos e relatos de segurança: nunca no Git (o repositório é público)
+.env
+.env.*
+!.env.example
+AUDITORIA-*.md
+PEDIDO-*.md

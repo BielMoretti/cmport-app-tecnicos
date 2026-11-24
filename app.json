@@ -33,9 +33,7 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.INTERNET",
         "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WAKE_LOCK",
-        "android.permission.BLUETOOTH",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.ACCESS_FINE_LOCATION",
@@ -74,7 +72,7 @@
       [
         "expo-media-library",
         {
-          "savePhotosPermission": "O CM Port salva na galeria as gravações que você baixar.",
+          "savePhotosPermission": "O CMPort Técnico salva na galeria as gravações que você baixar.",
           "isAccessMediaLocationEnabled": false,
           "granularPermissions": []
         }
@@ -82,22 +80,22 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "O CM Port usa as suas fotos só para a foto do perfil e para anexar ao serviço.",
-          "cameraPermission": "O CM Port usa a câmera para as fotos do serviço (antes e depois)."
+          "photosPermission": "O CMPort Técnico usa as suas fotos só para a foto do perfil.",
+          "cameraPermission": "O CMPort Técnico usa a câmera para as fotos do serviço (antes e depois)."
         }
       ],
       "expo-screen-orientation",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "O CM Port registra onde você estava ao chegar e ao concluir cada OS. Só com o app aberto."
+          "locationWhenInUsePermission": "O CMPort Técnico registra onde você estava ao chegar e ao concluir cada OS. Só com o app aberto."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "O CM Port usa a câmera para as fotos do serviço e para ler o QR das etiquetas.",
-          "microphonePermission": "O CM Port usa o microfone só quando você toca em gravar um áudio na OS."
+          "cameraPermission": "O CMPort Técnico usa a câmera para as fotos do serviço e para ler o QR das etiquetas.",
+          "microphonePermission": "O CMPort Técnico grava o áudio que você manda na OS (relato ou recado ao escritório). Só quando você toca em gravar."
         }
       ],
       [
@@ -110,7 +108,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "O CM Port grava o áudio que você manda na OS (relato ou recado ao escritório). Só quando você toca em gravar."
+          "microphonePermission": "O CMPort Técnico grava o áudio que você manda na OS (relato ou recado ao escritório). Só quando você toca em gravar."
         }
       ]
     ],

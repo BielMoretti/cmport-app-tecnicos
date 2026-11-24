@@ -32,5 +32,12 @@
         "EXPO_PUBLIC_SITE": "https://tec.cmport.com.br"
       }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6828900579"
+      }
+    }
   }
 }
