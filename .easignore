@@ -67,3 +67,12 @@ src/lib/gravador/pagina.ts
 # fora do envio para a Expo (EAS Build)
 .env*
 COMO-PROJETAMOS.md
+
+# relatos de segurança, notas internas e chaves: não vão para a Expo
+AUDITORIA-*.md
+PEDIDO-*.md
+MUDANCAS-*.md
+brain/
+.impeccable/
+google-services.json
+GoogleService-Info.plist

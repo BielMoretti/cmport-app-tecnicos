@@ -61,11 +61,14 @@ export function CampoDeAssinatura({ aoMudar, aoDesenhar, inicial = '', semApagar
         onResponderTerminate={() => aoDesenhar?.(false)}
         accessibilityLabel="Área de assinatura. Desenhe a assinatura com o dedo."
       >
-        <Svg width="100%" height="100%" viewBox={`0 0 ${AREA.largura} ${AREA.altura}`} pointerEvents="none">
-          <Path d={traco || 'M0 0'} stroke={cores.texto} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-        {!traco && <Text style={styles.dica} pointerEvents="none">Assine aqui</Text>}
-        <View style={styles.linhaBase} pointerEvents="none" />
+        {/* nada aqui dentro recebe o toque: locationX/Y valem em relação à view tocada, que tem de ser a área */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width="100%" height="100%" viewBox={`0 0 ${AREA.largura} ${AREA.altura}`}>
+            <Path d={traco || 'M0 0'} stroke={cores.texto} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+          {!traco && <Text style={styles.dica}>Assine aqui</Text>}
+          <View style={styles.linhaBase} />
+        </View>
       </View>
       {!!traco && !semApagar && (
         <Pressable onPress={() => mudar('')} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'flex-end' }}>
@@ -134,16 +137,18 @@ export function AssinarDeitado({ traco, aoMudar, conferir }: {
         </Pressable>
       )}
       <Modal visible={aberto} animationType="fade" statusBarTranslucent supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}
-        onRequestClose={sair}>
+        onRequestClose={sair} onShow={() => setVersaoCampo(v => v + 1)}>
         <View style={styles.tela}>
-        <View style={emPe
+        <View collapsable={false} style={emPe
           ? { position: 'absolute', width: alturaJanela, height: larguraJanela, left: (larguraJanela - alturaJanela) / 2, top: (alturaJanela - larguraJanela) / 2, transform: [{ rotate: '90deg' }] }
           : { flex: 1 }}>
         <View style={[styles.deitado, emPe && { paddingHorizontal: espaco[10], paddingVertical: espaco[6] }]}>
           <View style={{ flex: 1, alignItems: 'center' }}>
             {/* a maior área 2:1 que cabe na altura da tela deitada */}
             <View style={{ height: '100%', aspectRatio: AREA.largura / AREA.altura, maxWidth: '100%' }}>
-              <CampoDeAssinatura key={versaoCampo} aoMudar={setRascunho} inicial={rascunho} semApagar />
+              {/* O campo montado enquanto a janela abre e gira não registra o traço direito (só funcionava depois de
+                  "Limpar"). A chave o recria quando o modal aparece e a cada mudança de tamanho; o traço se mantém. */}
+              <CampoDeAssinatura key={`${versaoCampo}-${larguraJanela}x${alturaJanela}`} aoMudar={setRascunho} inicial={rascunho} semApagar />
             </View>
           </View>
           {!!recusa && <Text style={styles.recusa}>{recusa}</Text>}
