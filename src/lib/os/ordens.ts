@@ -152,6 +152,17 @@ export function ordenarOS(lista: OrdemServico[]): OrdemServico[] {
   });
 }
 
+/**
+ * O que ainda é para hoje: em atendimento ou pausada (de qualquer dia), ou não encerrada e agendada
+ * até o fim do dia (inclui as atrasadas). OS de outro dia à frente ou sem data não entra.
+ */
+export function paraFazerHoje(os: OrdemServico, agora = new Date()): boolean {
+  if (os.situacao === 'andamento' || os.situacao === 'pausada') return true;
+  if (os.situacao === 'concluida' || os.situacao === 'cancelada' || !os.agendada_para) return false;
+  const fimDeHoje = new Date(agora); fimDeHoje.setHours(23, 59, 59, 999);
+  return new Date(os.agendada_para) <= fimDeHoje;
+}
+
 /** O prazo para concluir (pela prioridade) já passou. */
 export function passouDoPrazo(os: OrdemServico): boolean {
   return !!os.prazo_em && new Date(os.prazo_em).getTime() < Date.now();

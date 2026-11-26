@@ -6,18 +6,10 @@ import { Grupo, Linha } from '@/components/lista';
 import { SeloSituacao } from '@/components/os/ui';
 import { Bloco } from '@/components/ui';
 import { ApiError } from '@/lib/os/api';
-import { listarOS, ordenarOS, quando } from '@/lib/os/ordens';
+import { listarOS, ordenarOS, paraFazerHoje, quando } from '@/lib/os/ordens';
 import type { OrdemServico } from '@/lib/os/types';
 
 const MAXIMO = 3;
-
-/** O que ainda é para hoje: em atendimento, pausada ou aberta agendada até o fim do dia. */
-function paraHoje(lista: OrdemServico[]): OrdemServico[] {
-  const fimDeHoje = new Date();
-  fimDeHoje.setHours(23, 59, 59, 999);
-  return ordenarOS(lista).filter(o => o.situacao === 'andamento' || o.situacao === 'pausada'
-    || (o.situacao === 'aberta' && !!o.agendada_para && new Date(o.agendada_para) <= fimDeHoje));
-}
 
 /**
  * Bloco do Início com as OS de hoje. Lê pelo mesmo caminho da aba OS (sem sinal, o que está
@@ -31,7 +23,7 @@ export function OSDeHoje() {
   useFocusEffect(useCallback(() => {
     let vivo = true;
     listarOS()
-      .then(r => { if (vivo) { setLista(paraHoje(r.lista)); setErro(null); } })
+      .then(r => { if (vivo) { setLista(ordenarOS(r.lista).filter(o => paraFazerHoje(o))); setErro(null); } })
       .catch(e => { if (vivo) setErro(e instanceof ApiError ? e.message : 'Não deu para carregar as OS.'); });
     return () => { vivo = false; };
   }, []));
