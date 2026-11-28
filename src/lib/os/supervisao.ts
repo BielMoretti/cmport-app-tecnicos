@@ -2,8 +2,8 @@
  * Visão do Supervisor: as OS do dia de todos os técnicos, só para consultar. Fica separada das OS do
  * próprio técnico (outra rota, outro cache, nada na fila). O cargo quem decide é o servidor.
  *
- *   GET /supervisao/os        {gerada_em, ordens}: agendadas hoje (qualquer situação), concluídas hoje e
- *                             em atendimento ou pausadas de qualquer dia
+ *   GET /supervisao/os        {gerada_em, ordens}: as OS agendadas hoje, em qualquer situação (o servidor
+ *                             de 28/11/2026, PR #336, mandava a lista direta: o app aceita as duas formas)
  *   GET /supervisao/os/{id}   a OS inteira
  *
  * Sem sinal, a lista guardada aparece com a hora dela; a OS aberta precisa de sinal.
@@ -29,7 +29,7 @@ export interface ItemDaSupervisao {
   a_caminho_em: string | null;
   iniciada_em: string | null;
   concluida_em: string | null;
-  cancelada_em: string | null;
+  cancelada_em?: string | null;
 }
 
 export interface ListaDaSupervisao {
@@ -45,7 +45,10 @@ let geracao = 0;
 export async function listarSupervisao(): Promise<ListaDaSupervisao> {
   const minha = geracao;
   try {
-    const { ordens } = await api<{ ordens: ItemDaSupervisao[] }>('/supervisao/os');
+    const resposta = await api<ItemDaSupervisao[] | { ordens?: ItemDaSupervisao[] } | null>('/supervisao/os');
+    const ordens = Array.isArray(resposta) ? resposta : resposta?.ordens;
+    // formato diferente vira mensagem na tela, nunca lista quebrada (no celular isso fecha o app)
+    if (!Array.isArray(ordens)) throw new ApiError(502, 'O servidor mandou a lista num formato que o app não conhece.');
     const nova = { ordens, em: new Date().toISOString() };
     if (minha === geracao) {
       try { await AsyncStorage.setItem(CHAVE, JSON.stringify(nova)); } catch { /* sem espaço: segue sem guardar */ }
@@ -53,9 +56,19 @@ export async function listarSupervisao(): Promise<ListaDaSupervisao> {
     return { ...nova, semSinal: false };
   } catch (e) {
     if (!(e instanceof ApiError) || e.status !== 0) throw e;
-    const bruto = await AsyncStorage.getItem(CHAVE).catch(() => null);
-    if (!bruto) throw new ApiError(0, 'Sem sinal. A lista aparece aqui depois da primeira vez com internet.');
-    return { ...(JSON.parse(bruto) as Omit<ListaDaSupervisao, 'semSinal'>), semSinal: true };
+    const guardada = await listaGuardada();
+    if (!guardada) throw new ApiError(0, 'Sem sinal. A lista aparece aqui depois da primeira vez com internet.');
+    return { ...guardada, semSinal: true };
+  }
+}
+
+/** A última lista guardada; null = não há, ou está estragada (a versão 1.1.0 build 6 gravava sem as OS). */
+async function listaGuardada(): Promise<Omit<ListaDaSupervisao, 'semSinal'> | null> {
+  try {
+    const guardada = JSON.parse((await AsyncStorage.getItem(CHAVE)) ?? 'null') as Omit<ListaDaSupervisao, 'semSinal'> | null;
+    return guardada && Array.isArray(guardada.ordens) ? guardada : null;
+  } catch {
+    return null;
   }
 }
 

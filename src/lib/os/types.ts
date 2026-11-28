@@ -136,7 +136,8 @@ export interface OrdemServico {
   audios?: AudioDaOS[];
   /** quando o técnico avisou que está indo (só vale com a OS aberta e no dia); a chave ausente = servidor sem a função */
   a_caminho_em?: string | null;
-  /** o servidor aceita foto da galeria, comentário e remoção; ausente = servidor sem a função */
+  /** o servidor aceita foto da galeria, comentário e remoção, e desfazer o "a caminho" (entraram juntos);
+   *  ausente = servidor sem essas funções */
   fotos_v2?: boolean;
   /** só vem na visão do Supervisor */
   motivo_cancelamento?: string | null;

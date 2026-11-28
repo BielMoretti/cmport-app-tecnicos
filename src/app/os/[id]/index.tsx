@@ -233,9 +233,11 @@ export default function DetalheDaOS() {
         {podeMexer && os.situacao === 'aberta' && os.a_caminho_em !== undefined && (
           <View style={{ gap: espaco[2] }}>
             {indo && <Text style={styles.ajuda}>Você avisou que está a caminho: {quando(os.a_caminho_em ?? null)}.</Text>}
-            <Botao tipo="secundario" rotulo={indo ? 'Desfazer "a caminho"' : 'Estou a caminho'}
-              carregando={ocupado === 'a-caminho'} desativado={!!ocupado}
-              onPress={() => (indo ? agir('a-caminho', () => desfazerACaminho(os.id)) : estouACaminho())} />
+            {(!indo || os.fotos_v2) && (
+              <Botao tipo="secundario" rotulo={indo ? 'Desfazer "a caminho"' : 'Estou a caminho'}
+                carregando={ocupado === 'a-caminho'} desativado={!!ocupado}
+                onPress={() => (indo ? agir('a-caminho', () => desfazerACaminho(os.id)) : estouACaminho())} />
+            )}
           </View>
         )}
 
