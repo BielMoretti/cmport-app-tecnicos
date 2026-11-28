@@ -38,6 +38,7 @@ const cor = {
   azulMarinho: '#0E2240',
   vermelhoAoVivo: '#D92D20',
   lilas: '#B9A8FF',      // OS esperando aprovação (único uso)
+  turquesa: '#4FD1E0',   // técnico a caminho (único uso)
 } as const;
 
 const semSombra = '0px 0px 0px rgba(0, 0, 0, 0)';
@@ -119,6 +120,8 @@ export interface Paleta {
   // Situação da OS, no mesmo vocabulário das câmeras: azul = a fazer, âmbar = em curso, verde = feita.
   solicitada: CorDeSituacao;
   aberta: CorDeSituacao;
+  /** não é uma situação da OS: a aberta em que o técnico avisou que está indo */
+  aCaminho: CorDeSituacao;
   andamento: CorDeSituacao;
   pausada: CorDeSituacao;
   concluida: CorDeSituacao;
@@ -158,6 +161,7 @@ export const paleta: Paleta = {
   sobreEstado: cor.tinta,
   solicitada: { texto: cor.lilas, fundo: 'rgba(185, 168, 255, 0.14)' },
   aberta: { texto: cor.sinal, fundo: 'rgba(110, 155, 255, 0.16)' },
+  aCaminho: { texto: cor.turquesa, fundo: 'rgba(79, 209, 224, 0.14)' },
   andamento: { texto: cor.ambar, fundo: 'rgba(244, 183, 64, 0.14)' },
   pausada: { texto: cor.cinza, fundo: 'rgba(163, 172, 185, 0.14)' },
   concluida: { texto: cor.verde, fundo: 'rgba(52, 201, 139, 0.16)' },

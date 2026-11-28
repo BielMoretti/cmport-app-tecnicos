@@ -10,7 +10,7 @@ import { Aviso, Cartao, LogoPlaca, SeloSituacao, Tela } from '@/components/os/ui
 import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { pendentesDaOS, useFila } from '@/lib/os/fila';
-import { listarOS, ordenarOS, paraFazerHoje, quando } from '@/lib/os/ordens';
+import { estaACaminho, listarOS, ordenarOS, paraFazerHoje, quando } from '@/lib/os/ordens';
 import { componentes, corpo, espaco, fontes, raio, vidro, type Paleta } from '@/lib/tema';
 import { ROTULO_PRIORIDADE, type OrdemServico } from '@/lib/os/types';
 
@@ -43,7 +43,7 @@ function LinhaDaOS({ os, pendentes }: { os: OrdemServico; pendentes: number }) {
     <Cartao onPress={() => router.push({ pathname: '/os/[id]', params: { id: String(os.id) } })} rotulo={`${os.numero}, ${os.titulo}`}>
       <View style={styles.linhaTopo}>
         <Text style={styles.numero}>{paradaDeHoje(os) ? `${paradaDeHoje(os)}ª parada · ` : ''}{os.numero}</Text>
-        <SeloSituacao situacao={os.situacao} />
+        <SeloSituacao situacao={os.situacao} aCaminho={estaACaminho(os)} />
       </View>
       <Text style={styles.titulo} numberOfLines={2}>{os.titulo}</Text>
       <Text style={styles.cliente} numberOfLines={1}>{os.cliente.nome}</Text>

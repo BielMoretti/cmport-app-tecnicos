@@ -36,16 +36,17 @@ export function Botao({ rotulo, onPress, carregando, desativado, tipo = 'princip
 }
 
 /** Selo da situação: ponto + texto escrito (a cor nunca fala sozinha). */
-export function SeloSituacao({ situacao }: { situacao: Situacao }) {
+export function SeloSituacao({ situacao, aCaminho }: { situacao: Situacao; aCaminho?: boolean }) {
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
-  const c = cores[situacao];
+  const indo = !!aCaminho && situacao === 'aberta';
+  const c = cores[indo ? 'aCaminho' : situacao];
   return (
     <View style={[styles.selo, { backgroundColor: c.fundo, borderColor: c.texto }]}>
       {situacao === 'andamento'
         ? <Pulso cor={c.texto} tamanho={componentes.selo.ponto} />
         : <View style={[styles.seloPonto, { backgroundColor: c.texto }]} />}
-      <Text style={styles.seloTexto}>{ROTULO_SITUACAO[situacao]}</Text>
+      <Text style={styles.seloTexto}>{indo ? 'A caminho' : ROTULO_SITUACAO[situacao]}</Text>
     </View>
   );
 }

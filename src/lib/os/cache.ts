@@ -46,6 +46,19 @@ export async function guardarOS(os: OrdemServico) {
   await gravar({ ...c, porId: { ...c.porId, [os.id]: os }, lista: c.lista.includes(os.id) ? c.lista : [os.id, ...c.lista] });
 }
 
+/** Só há um destino por vez: o servidor tirou a marca "a caminho" das outras OS, e o celular faz o mesmo. */
+export async function limparACaminhoDasOutras(osId: number, ate: string) {
+  const c = await ler();
+  const porId = { ...c.porId };
+  let mudou = false;
+  for (const os of Object.values(porId)) {
+    if (os.id === osId || !os.a_caminho_em || new Date(os.a_caminho_em) > new Date(ate)) continue;
+    porId[os.id] = { ...os, a_caminho_em: null };
+    mudou = true;
+  }
+  if (mudou) await gravar({ ...c, porId });
+}
+
 export async function listaGuardada(): Promise<{ lista: OrdemServico[]; em: string | null }> {
   const c = await ler();
   return { lista: c.lista.map(id => c.porId[id]).filter(Boolean), em: c.em };

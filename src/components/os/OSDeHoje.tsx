@@ -6,7 +6,7 @@ import { Grupo, Linha } from '@/components/lista';
 import { SeloSituacao } from '@/components/os/ui';
 import { Bloco } from '@/components/ui';
 import { ApiError } from '@/lib/os/api';
-import { listarOS, ordenarOS, paraFazerHoje, quando } from '@/lib/os/ordens';
+import { estaACaminho, listarOS, ordenarOS, paraFazerHoje, quando } from '@/lib/os/ordens';
 import type { OrdemServico } from '@/lib/os/types';
 
 const MAXIMO = 3;
@@ -44,7 +44,7 @@ export function OSDeHoje() {
               key={o.id}
               titulo={o.titulo}
               detalhe={`${o.cliente.nome}, ${quando(o.agendada_para)}`}
-              abaixo={<SeloSituacao situacao={o.situacao} />}
+              abaixo={<SeloSituacao situacao={o.situacao} aCaminho={estaACaminho(o)} />}
               onPress={() => router.push({ pathname: '/os/[id]', params: { id: String(o.id) } })}
               ultima={i === l.length - 1}
             />

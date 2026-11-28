@@ -74,3 +74,4 @@ GoogleService-Info.plist
 !.env.example
 AUDITORIA-*.md
 PEDIDO-*.md
+DEMANDA-*.md

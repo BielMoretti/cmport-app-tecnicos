@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Aviso, Botao, Campo, Carregando, Cartao, SeloSituacao, Topo } from '@/components/os/ui';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { historicoDoLocal, pedirOS, type HistoricoDoLocal } from '@/lib/os/locais';
-import { quando } from '@/lib/os/ordens';
+import { estaACaminho, quando } from '@/lib/os/ordens';
 import { componentes, corpo, espaco, fontes, raio, type Paleta } from '@/lib/tema';
 import { ROTULO_PRIORIDADE, type Prioridade } from '@/lib/os/types';
 
@@ -90,7 +90,7 @@ export default function Local() {
                   onPress={() => router.push({ pathname: '/os/[id]', params: { id: String(o.id), local: String(dados.condominio_id) } })}>
                   <View style={styles.linhaTopo}>
                     <Text style={styles.numero}>{o.numero}</Text>
-                    <SeloSituacao situacao={o.situacao} />
+                    <SeloSituacao situacao={o.situacao} aCaminho={estaACaminho(o)} />
                   </View>
                   <Text style={styles.titulo}>{o.titulo}</Text>
                   <Text style={styles.ajuda}>{o.tipo} · {quando(o.quando)}{o.tecnico ? ` · ${o.tecnico}` : ''}</Text>

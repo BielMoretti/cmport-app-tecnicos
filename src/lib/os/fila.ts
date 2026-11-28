@@ -23,7 +23,7 @@ import NetInfo from '@react-native-community/netinfo';
 
 import { api, ApiError, enviarArquivo } from './api';
 import { apagarFotoDaFila, apagarTodasAsFotosDaFila, arquivoExiste } from './arquivoDaFila';
-import { guardarOS } from './cache';
+import { guardarOS, limparACaminhoDasOutras } from './cache';
 import { jaFeita, novaIdentidade, type Acao } from './regras';
 import type { OrdemServico } from './types';
 
@@ -80,7 +80,12 @@ export async function enfileirar(acao: Acao): Promise<void> {
   await gravar([...estado.itens, { id: novaIdentidade('a'), acao }]);
 }
 
-/** Tira a ação parada com erro (e as que esperavam por ela não mudam). */
+/** o comentário de uma foto que não vai mais subir não tem onde entrar */
+function eComentarioDa(a: Acao, idCliente: string): boolean {
+  return a.tipo === 'comentar_foto' && 'id_cliente' in a.foto && a.foto.id_cliente === idCliente;
+}
+
+/** Tira a ação parada com erro (e as que esperavam por ela não mudam; só o comentário vai junto com a foto). */
 export async function descartar(id: string): Promise<void> {
   const item = estado.itens.find(i => i.id === id);
   if (item?.acao.tipo === 'foto' || item?.acao.tipo === 'audio') apagarFotoDaFila(item.acao.uri);
@@ -88,7 +93,23 @@ export async function descartar(id: string): Promise<void> {
     const { [id]: _, ...resto } = estado.travadas;
     avisar({ travadas: resto });
   }
-  await gravar(estado.itens.filter(i => i.id !== id));
+  const foto = item?.acao.tipo === 'foto' ? item.acao.idCliente : null;
+  await gravar(estado.itens.filter(i => i.id !== id && !(foto && eComentarioDa(i.acao, foto))));
+}
+
+/** a ação que está sendo enviada agora (não dá para tirá-la da fila no meio do caminho) */
+let emEnvio: string | null = null;
+
+/**
+ * A foto foi removida: o envio dela, se ainda não saiu, nem precisa acontecer. Se está saindo agora,
+ * fica: o pedido de remoção entra atrás e o servidor a tira em seguida.
+ */
+export async function cancelarEnvioDaFoto(idCliente: string): Promise<void> {
+  await carregarFila();
+  const comentarios = estado.itens.filter(i => eComentarioDa(i.acao, idCliente));
+  const envio = estado.itens.find(i => i.acao.tipo === 'foto' && i.acao.idCliente === idCliente);
+  for (const i of comentarios) await descartar(i.id);
+  if (envio && envio.id !== emEnvio) await descartar(envio.id);
 }
 
 /** Tenta de novo agora: as que pararam com erro e as que esperavam sinal. */
@@ -125,6 +146,11 @@ function enviar(a: Acao): Promise<OrdemServico> {
     case 'checkin': return api(`/os/${a.os}/checkin`, { method: 'POST', body: { em: a.em, ...local } });
     case 'pausar': return api(`/os/${a.os}/pausar`, { method: 'POST', body: { em: a.em } });
     case 'retomar': return api(`/os/${a.os}/retomar`, { method: 'POST', body: { em: a.em } });
+    case 'a_caminho': return api(`/os/${a.os}/a-caminho`, { method: 'POST', body: { em: a.em } });
+    case 'desfazer_a_caminho': return api(`/os/${a.os}/a-caminho/desfazer`, { method: 'POST', body: { em: a.em } });
+    case 'remover_foto': return api(`/os/${a.os}/fotos/remover`, { method: 'POST', body: { ...a.foto, em: a.em } });
+    case 'comentar_foto':
+      return api(`/os/${a.os}/fotos/comentario`, { method: 'POST', body: { ...a.foto, comentario: a.comentario, em: a.em } });
     case 'item': return api(`/os/${a.os}/checklist/${a.item}`, { method: 'PATCH', body: { feito: a.feito, em: a.em } });
     case 'foto':
       return enviarArquivo(`/os/${a.os}/fotos`, { uri: a.uri, nome: a.nome, tipo: a.tipoArquivo },
@@ -132,6 +158,7 @@ function enviar(a: Acao): Promise<OrdemServico> {
           legenda: a.legenda, em: a.em, id_cliente: a.idCliente,
           ...(a.marcacoes?.length ? { marcacoes: JSON.stringify(a.marcacoes) } : {}),
           ...(a.item ? { item_id: String(a.item) } : {}),
+          ...(a.origem === 'galeria' ? { origem: a.origem } : {}),
         });
     case 'audio':
       return enviarArquivo(`/os/${a.os}/audios`, { uri: a.uri, nome: a.nome, tipo: a.tipoArquivo },
@@ -144,6 +171,7 @@ function enviar(a: Acao): Promise<OrdemServico> {
 }
 
 let rodando: Promise<void> | null = null;
+let maisUma = false;
 
 /** Envia o que está na fila, na ordem. Várias chamadas ao mesmo tempo viram uma só. */
 export function sincronizar(): Promise<void> {
@@ -155,12 +183,17 @@ export function sincronizar(): Promise<void> {
     let falhou = false;
     const travadas: Record<string, string> = {};
     const paradas = new Set<number>();   // OS com uma ação recusada ou que não saiu: as seguintes dela esperam
+    const daVez = [...estado.itens];
     try {
-      for (const item of [...estado.itens]) {
+      for (const item of daVez) {
         const { acao } = item;
+        // tirada da fila enquanto as anteriores subiam (foto removida)
+        if (!estado.itens.some(i => i.id === item.id)) continue;
         if (item.erro || paradas.has(acao.os)) { paradas.add(acao.os); continue; }
         try {
+          emEnvio = item.id;
           await guardarOS(await enviar(acao));
+          if (acao.tipo === 'a_caminho' || acao.tipo === 'checkin') await limparACaminhoDasOutras(acao.os, acao.em);
           if (acao.tipo === 'foto' || acao.tipo === 'audio') apagarFotoDaFila(acao.uri);
           await gravar(estado.itens.filter(i => i.id !== item.id));
           tentativas = 0;
@@ -192,10 +225,16 @@ export function sincronizar(): Promise<void> {
         }
       }
     } finally {
+      emEnvio = null;
       avisar({ enviando: false, ...(falhou ? {} : { travadas: {} }) });
     }
     if (falhou) tentarMaisTarde();
-  })().finally(() => { rodando = null; });
+    // ação feita enquanto as outras subiam (ex.: remover a foto que estava subindo): vai logo em seguida
+    else maisUma = estado.itens.some(i => !i.erro && !paradas.has(i.acao.os) && !daVez.some(v => v.id === i.id));
+  })().finally(() => {
+    rodando = null;
+    if (maisUma) { maisUma = false; void sincronizar(); }
+  });
   return rodando;
 }
 

@@ -4,19 +4,50 @@
  * sem sinal: a ação vai para a fila (lib/fila.ts) e a OS já aparece como vai ficar.
  */
 import { ApiError } from './api';
-import type { Marcacao, OrdemServico, Situacao, TracoNaFoto } from './types';
+import type { Foto, Marcacao, OrdemServico, OrigemDaFoto, Situacao, TracoNaFoto } from './types';
 
 export type Acao =
   | { tipo: 'checkin'; os: number; em: string; lat: number | null; lng: number | null; precisao: number | null }
   | { tipo: 'pausar' | 'retomar'; os: number; em: string }
+  | { tipo: 'a_caminho' | 'desfazer_a_caminho'; os: number; em: string }
+  | { tipo: 'remover_foto'; os: number; em: string; foto: RefDaFoto }
+  | { tipo: 'comentar_foto'; os: number; em: string; foto: RefDaFoto; comentario: string }
   | { tipo: 'item'; os: number; item: number; feito: boolean; em: string }
-  | { tipo: 'foto'; os: number; em: string; idCliente: string; uri: string; nome: string; tipoArquivo: string; legenda: string; marcacoes?: TracoNaFoto[]; item?: number }
+  | { tipo: 'foto'; os: number; em: string; idCliente: string; uri: string; nome: string; tipoArquivo: string; legenda: string; marcacoes?: TracoNaFoto[]; item?: number; origem?: OrigemDaFoto }
   | { tipo: 'mensagem'; os: number; em: string; idCliente: string; texto: string }
   | { tipo: 'audio'; os: number; em: string; idCliente: string; uri: string; nome: string; tipoArquivo: string; duracao: number }
   | {
       tipo: 'concluir'; os: number; em: string; relato: string; assinatura: { nome: string; traco: string; local?: Marcacao | null };
       lat: number | null; lng: number | null; precisao: number | null;
     };
+
+/** Qual foto: a que já está no servidor pelo id; a que ainda está no celular pela identidade dela. */
+export type RefDaFoto = { foto_id: number } | { id_cliente: string };
+
+export function refDaFoto(f: Foto): RefDaFoto {
+  return f.id < 0 && f.id_cliente ? { id_cliente: f.id_cliente } : { foto_id: f.id };
+}
+
+function ehAFoto(f: Foto, ref: RefDaFoto): boolean {
+  return 'foto_id' in ref ? f.id === ref.foto_id : f.id_cliente === ref.id_cliente;
+}
+
+/** O técnico avisou hoje que está indo e ainda não chegou. Marca de outro dia não vale. */
+export function estaACaminho(os: { situacao: Situacao; a_caminho_em?: string | null }, agora = new Date()): boolean {
+  return os.situacao === 'aberta' && !!os.a_caminho_em && new Date(os.a_caminho_em).toDateString() === agora.toDateString();
+}
+
+/**
+ * Só há um destino por vez: marcar "a caminho" (ou chegar) em outra OS tira a marca desta. Vale para o
+ * que ainda está na fila, antes de o servidor fazer o mesmo.
+ */
+export function semMarcaSuperada(os: OrdemServico, fila: { acao: Acao; erro?: string }[]): OrdemServico {
+  const marca = os.a_caminho_em;
+  if (!marca) return os;
+  const superada = fila.some(({ acao, erro }) => !erro && acao.os !== os.id
+    && (acao.tipo === 'a_caminho' || acao.tipo === 'checkin') && new Date(acao.em) >= new Date(marca));
+  return superada ? { ...os, a_caminho_em: null } : os;
+}
 
 const ROTULO: Record<Situacao, string> = {
   solicitada: 'esperando o escritório aprovar',
@@ -45,7 +76,34 @@ export function aplicar(atual: OrdemServico, a: Acao): OrdemServico {
       os.situacao = 'andamento';
       os.iniciada_em ??= a.em;
       os.checkin = { em: a.em, lat: a.lat, lng: a.lng, precisao: a.precisao };
+      if (os.a_caminho_em) os.a_caminho_em = null;
       break;
+    case 'a_caminho':
+      exigir(os, ['aberta'], 'avisar que está a caminho');
+      os.a_caminho_em = a.em;
+      break;
+    case 'desfazer_a_caminho':
+      os.a_caminho_em = null;
+      break;
+    case 'remover_foto': {
+      exigir(os, ['andamento', 'pausada'], 'remover foto');
+      const foto = os.fotos.find(f => ehAFoto(f, a.foto));
+      if (!foto) break;
+      os.fotos = os.fotos.filter(f => f !== foto);
+      // o item que a foto comprovava volta a pedir foto
+      for (const item of os.checklist) {
+        if (item.foto_id !== foto.id) continue;
+        item.foto_id = null;
+        if (item.exige_foto) item.feito = false;
+      }
+      break;
+    }
+    case 'comentar_foto': {
+      exigir(os, ['andamento', 'pausada'], 'comentar a foto');
+      const foto = os.fotos.find(f => ehAFoto(f, a.foto));
+      if (foto) foto.comentario = a.comentario;
+      break;
+    }
     case 'pausar':
       exigir(os, ['andamento'], 'pausar');
       os.situacao = 'pausada';
@@ -67,10 +125,12 @@ export function aplicar(atual: OrdemServico, a: Acao): OrdemServico {
       const item = a.item ? os.checklist.find(i => i.id === a.item) : undefined;
       if (a.item && !item) throw new ApiError(404, 'Item do checklist não encontrado.');
       exigir(os, item ? ['andamento'] : ['andamento', 'pausada'], 'anexar foto');
-      let foto = os.fotos.find(f => f.url === a.uri);
+      // a mesma foto é a de mesma identidade: no navegador, dois arquivos iguais têm o mesmo endereço
+      let foto = os.fotos.find(f => f.id_cliente === a.idCliente);
       if (!foto) {
-        // id negativo = ainda no celular; a URL é o arquivo local até subir
-        foto = { id: -(os.fotos.length + 1), url: a.uri, legenda: a.legenda, tirada_em: a.em };
+        // id negativo = ainda no celular (nunca repete, mesmo depois de remover); a URL é o arquivo local até subir
+        const id = Math.min(0, ...os.fotos.map(f => f.id)) - 1;
+        foto = { id, url: a.uri, legenda: a.legenda, tirada_em: a.em, id_cliente: a.idCliente, comentario: '', removivel: true };
         os.fotos.push(foto);
       }
       if (item) { item.feito = true; item.foto_id = foto.id; }
@@ -114,6 +174,10 @@ export function jaFeita(os: OrdemServico, a: Acao): boolean {
     case 'retomar': return os.situacao === 'andamento';
     case 'item': return os.checklist.find(i => i.id === a.item)?.feito === a.feito;
     case 'concluir': return os.situacao === 'concluida';
+    case 'a_caminho': return os.situacao !== 'aberta' || !!os.a_caminho_em;
+    case 'desfazer_a_caminho': return !os.a_caminho_em;
+    case 'remover_foto': return !os.fotos.some(f => ehAFoto(f, a.foto));
+    case 'comentar_foto': return os.fotos.find(f => ehAFoto(f, a.foto))?.comentario === a.comentario;
     case 'foto':
     case 'audio':
     case 'mensagem': return false;   // repetida o servidor já ignora pela identidade

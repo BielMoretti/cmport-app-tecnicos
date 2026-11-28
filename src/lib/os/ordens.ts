@@ -12,6 +12,9 @@
  *   PATCH /os/{id}/checklist/{item} {feito, em}
  *   POST  /os/{id}/fotos (multipart: arquivo, legenda, em, id_cliente, marcacoes; item_id = foto do item do checklist)
  *   POST  /os/{id}/concluir {em, relato, assinatura, lat, lng, precisao}
+ *   POST  /os/{id}/a-caminho {em} · /a-caminho/desfazer {em}
+ *   POST  /os/{id}/fotos/remover {foto_id | id_cliente, em}
+ *   POST  /os/{id}/fotos/comentario {foto_id | id_cliente, comentario, em}
  *   POST  /os/{id}/mensagens {texto, em, id_cliente}
  *   POST  /os/{id}/audios (multipart: arquivo, em, id_cliente, duracao_s)
  */
@@ -19,11 +22,12 @@ import { api, ApiError } from './api';
 import { guardarFotoDaFila } from './arquivoDaFila';
 import { apagarCache, guardarLista, guardarOS, listaGuardada, osGuardada } from './cache';
 import { apagarRascunhos } from './rascunho';
-import { apagarFila, carregarFila, enfileirar, itensDaFila, sincronizar } from './fila';
-import { aplicar, novaIdentidade, type Acao } from './regras';
-import type { Marcacao, OrdemServico, Situacao, TracoNaFoto } from './types';
+import { apagarFila, cancelarEnvioDaFoto, carregarFila, enfileirar, itensDaFila, sincronizar } from './fila';
+import { aplicar, estaACaminho, novaIdentidade, refDaFoto, semMarcaSuperada, type Acao } from './regras';
+import { apagarSupervisao } from './supervisao';
+import type { Foto, Marcacao, OrdemServico, OrigemDaFoto, Situacao, TracoNaFoto } from './types';
 
-export { pendenciasParaConcluir } from './regras';
+export { estaACaminho, pendenciasParaConcluir } from './regras';
 
 /** As ações ainda na fila, aplicadas por cima da versão que veio do servidor. */
 function comPendentes(os: OrdemServico): OrdemServico {
@@ -32,7 +36,7 @@ function comPendentes(os: OrdemServico): OrdemServico {
     if (item.acao.os !== os.id) continue;
     try { atual = aplicar(atual, item.acao); } catch { /* recusada: a tela mostra o erro da fila */ }
   }
-  return atual;
+  return semMarcaSuperada(atual, itensDaFila());
 }
 
 export interface Lista {
@@ -104,12 +108,41 @@ export function marcarItem(id: number, item: number, feito: boolean): Promise<Or
 }
 
 export async function anexarFoto(id: number, arquivo: { uri: string; nome: string; tipo: string }, legenda: string,
-  marcacoes?: TracoNaFoto[], item?: number): Promise<OrdemServico> {
+  marcacoes?: TracoNaFoto[], item?: number, origem?: OrigemDaFoto): Promise<OrdemServico> {
   const idCliente = novaIdentidade('f');
   // a foto espera sinal num lugar que sobrevive ao app fechar
   const uri = await guardarFotoDaFila(arquivo.uri, idCliente);
   // com item, a foto comprova aquele item do checklist e o servidor já o marca como feito
-  return agir({ tipo: 'foto', os: id, em: agora(), idCliente, uri, nome: arquivo.nome, tipoArquivo: arquivo.tipo, legenda, marcacoes, item });
+  return agir({ tipo: 'foto', os: id, em: agora(), idCliente, uri, nome: arquivo.nome, tipoArquivo: arquivo.tipo, legenda, marcacoes, item, origem });
+}
+
+/** Tira a foto errada. A que ainda não subiu sai da fila; o servidor é avisado de qualquer jeito. */
+export async function removerFoto(id: number, foto: Foto): Promise<OrdemServico> {
+  await carregarFila();
+  const acao: Acao = { tipo: 'remover_foto', os: id, em: agora(), foto: refDaFoto(foto) };
+  // confere a regra antes de mexer na fila
+  aplicar((await osNoCelular(id)) ?? (await buscarOS(id)), acao);
+  if (foto.id < 0 && foto.id_cliente) await cancelarEnvioDaFoto(foto.id_cliente);
+  return agir(acao);
+}
+
+export function comentarFoto(id: number, foto: Foto, comentario: string): Promise<OrdemServico> {
+  return agir({ tipo: 'comentar_foto', os: id, em: agora(), foto: refDaFoto(foto), comentario });
+}
+
+export function avisarACaminho(id: number): Promise<OrdemServico> {
+  return agir({ tipo: 'a_caminho', os: id, em: agora() });
+}
+
+export function desfazerACaminho(id: number): Promise<OrdemServico> {
+  return agir({ tipo: 'desfazer_a_caminho', os: id, em: agora() });
+}
+
+/** A outra OS que está marcada "a caminho" agora, pelo que o celular sabe (para perguntar antes de trocar). */
+export async function outraACaminho(id: number): Promise<OrdemServico | null> {
+  await carregarFila();
+  const { lista } = await listaGuardada();
+  return lista.map(comPendentes).find(o => o.id !== id && estaACaminho(o)) ?? null;
 }
 
 /** Áudio na OS: o arquivo espera sinal nos documentos do app, como a foto. */
@@ -139,14 +172,19 @@ export async function limparDoCelular(): Promise<void> {
   await apagarFila();
   await apagarCache();
   await apagarRascunhos();
+  await apagarSupervisao();
 }
 
 /** Ordem da lista: o que pede ação primeiro, concluídas e canceladas no fim. */
 const PESO: Record<Situacao, number> = { andamento: 0, aberta: 1, pausada: 2, solicitada: 3, concluida: 4, cancelada: 5 };
 
+/** "a caminho" vem logo depois da que está em atendimento */
+export const pesoDaOS = (o: { situacao: Situacao; a_caminho_em?: string | null }) =>
+  (estaACaminho(o) ? 0.5 : PESO[o.situacao]);
+
 export function ordenarOS(lista: OrdemServico[]): OrdemServico[] {
   return [...lista].sort((a, b) => {
-    const p = PESO[a.situacao] - PESO[b.situacao];
+    const p = pesoDaOS(a) - pesoDaOS(b);
     if (p !== 0) return p;
     return (a.agendada_para ?? a.criada_em).localeCompare(b.agendada_para ?? b.criada_em);
   });

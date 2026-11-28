@@ -12,6 +12,16 @@ export function GlifoLista({ cor, tamanho = 22 }: Props) {
   );
 }
 
+export function GlifoEquipe({ cor, tamanho = 22 }: Props) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke={cor} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={9} cy={8.5} r={3.5} />
+      <Path d="M2.5 19.5c1.2-3 3.7-4.4 6.5-4.4s5.3 1.4 6.5 4.4" />
+      <Path d="M16 5.4a3.5 3.5 0 0 1 0 6.2M18 15.4c1.8.6 3 2 3.5 4.1" />
+    </Svg>
+  );
+}
+
 export function GlifoConta({ cor, tamanho = 22 }: Props) {
   return (
     <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke={cor} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">

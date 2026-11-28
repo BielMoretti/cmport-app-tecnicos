@@ -11,6 +11,7 @@
  * A senha nunca é gravada: fica só na memória até a troca obrigatória acabar.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 
 import * as cameras from '@/lib/api';
 import { apagarItem, lerItem, salvarItem } from '@/lib/armazenamento';
@@ -19,6 +20,7 @@ import { buscarFoto } from '@/lib/foto';
 import { desligarAvisos } from '@/lib/os/avisos';
 import * as ordens from '@/lib/os/api';
 import { limparDoCelular } from '@/lib/os/ordens';
+import { apagarSupervisao } from '@/lib/os/supervisao';
 import type { RespostaDeLogin } from '@/lib/os/types';
 import { buscarPerfil } from '@/lib/perfil';
 import type { Role, TokenResponse } from '@/lib/types';
@@ -46,6 +48,8 @@ interface Sessao {
   termosPendentes?: string | null;
   /** como a pessoa quer ser chamada na saudação (Conta); vazio = primeiro nome */
   apelido?: string;
+  /** cargo no serviço de OS: vê (sem alterar) as OS do dia de todos. Quem decide é o servidor */
+  supervisor?: boolean;
 }
 
 interface AuthContextValue {
@@ -65,6 +69,8 @@ interface AuthContextValue {
   concluirPermissoes: () => void;
   /** depois de editar o perfil: troca o nome e o apelido de quem está logado, sem novo login */
   atualizarSessao: (dados: { nome: string; apelido: string }) => Promise<void>;
+  /** pergunta de novo ao servidor o que vale para a conta (termos e cargo) */
+  conferirConta: () => Promise<void>;
   /** a foto do perfil, pronta para um <Image>; null = sem foto (mostra as iniciais) */
   foto: string | null;
   definirFoto: (foto: string | null) => void;
@@ -175,20 +181,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { ordens.setAoExpirar(null); cameras.setAoExpirar(null); };
   }, [encerrar]);
 
-  // termos: pergunta ao servidor a cada abertura (texto novo = aceite de novo). Sem sinal ou servidor
-  // antigo (sem o campo): não trava ninguém
+  // termos e cargo: pergunta ao servidor a cada abertura e ao voltar para o app (texto novo = aceite de
+  // novo; cargo retirado some). Sem sinal ou servidor antigo (sem o campo dos termos): não trava ninguém
+  const email = usuario?.email;
+  const conferirConta = useCallback(async () => {
+    if (!email) return;
+    let me: { termos_pendentes?: string | null; supervisor?: boolean };
+    try { me = await ordens.api('/auth/me'); } catch { return; }
+    const supervisor = me.supervisor === true;
+    setUsuario(atual => {
+      // a resposta é de quem estava logado quando perguntou
+      if (!atual || atual.email !== email) return atual;
+      const termos = me.termos_pendentes === undefined ? atual.termosPendentes : me.termos_pendentes;
+      const mudouCargo = !!atual.supervisor !== supervisor;
+      if (!mudouCargo && (atual.termosPendentes ?? null) === (termos ?? null)) return atual;
+      if (mudouCargo) {
+        // o cargo vale sem sinal na próxima abertura; os termos ficam só na memória, para não travar quem está sem sinal
+        const { termosPendentes: _, ...resto } = atual;
+        void salvarItem(CHAVE_SESSAO, JSON.stringify({ ...resto, supervisor })).catch(() => {});
+        if (!supervisor) void apagarSupervisao();
+      }
+      return { ...atual, termosPendentes: termos, supervisor };
+    });
+  }, [email]);
+
   const tokenOs = usuario?.tokenOs;
   useEffect(() => {
     if (!tokenOs) return;
-    let vivo = true;
-    ordens.api<{ termos_pendentes?: string | null }>('/auth/me')
-      .then(me => {
-        if (!vivo || me.termos_pendentes === undefined) return;
-        setUsuario(atual => (atual && (atual.termosPendentes ?? null) !== me.termos_pendentes ? { ...atual, termosPendentes: me.termos_pendentes } : atual));
-      })
-      .catch(() => {});
-    return () => { vivo = false; };
-  }, [tokenOs]);
+    void conferirConta();
+    const app = AppState.addEventListener('change', s => { if (s === 'active') void conferirConta(); });
+    return () => app.remove();
+  }, [tokenOs, conferirConta]);
 
   // o apelido e a foto não vêm no login: busca o perfil uma vez por sessão, em segundo plano
   const token = usuario?.token;
@@ -261,8 +284,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const valor = useMemo(() => ({
     usuario, carregando, login, logout, criarSenha, senhaInicial, aceitarTermos, permissoesVistas, concluirPermissoes,
-    atualizarSessao, foto, definirFoto,
-  }), [usuario, carregando, login, logout, criarSenha, senhaInicial, aceitarTermos, permissoesVistas, concluirPermissoes, atualizarSessao, foto]);
+    atualizarSessao, conferirConta, foto, definirFoto,
+  }), [usuario, carregando, login, logout, criarSenha, senhaInicial, aceitarTermos, permissoesVistas, concluirPermissoes, atualizarSessao, conferirConta, foto]);
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;
 }

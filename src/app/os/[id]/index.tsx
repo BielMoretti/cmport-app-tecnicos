@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,21 +8,31 @@ import { VerAssinatura } from '@/components/os/Assinatura';
 import { GravarAudio, TocarAudio } from '@/components/os/AudioDaOS';
 import AvisoDaFila from '@/components/os/AvisoDaFila';
 import Cronometro from '@/components/os/Cronometro';
+import FotoDaOS from '@/components/os/FotoDaOS';
 import MarcarFoto from '@/components/os/MarcarFoto';
 import { Aviso, Botao, Campo, Carregando, Cartao, SeloSituacao, Topo } from '@/components/os/ui';
+import { confirmar } from '@/components/formulario';
+import { useAuth } from '@/contexts/AuthContext';
 import { useEstilos, useTema } from '@/contexts/TemaContext';
 import { urlAbsoluta } from '@/lib/config';
+import { ApiError } from '@/lib/os/api';
+import { useAoVivo } from '@/lib/os/atualizar';
 import { useFila } from '@/lib/os/fila';
 import { reduzirFoto } from '@/lib/os/foto';
+import { salvarNaGaleria } from '@/lib/os/galeria';
 import { descreverMarcacao, marcarAqui } from '@/lib/os/local';
 import { osDoLocal } from '@/lib/os/locais';
 import { irAteOLocal } from '@/lib/os/rota';
 import {
-  anexarAudio, anexarFoto, buscarOS, fazerCheckin, mandarMensagem, marcarItem, osNoCelular, passouDoPrazo, pausar, pendenciasParaConcluir, quando,
-  retomar,
+  anexarAudio, anexarFoto, avisarACaminho, buscarOS, comentarFoto, desfazerACaminho, estaACaminho, fazerCheckin, mandarMensagem, marcarItem,
+  osNoCelular, outraACaminho, passouDoPrazo, pausar, pendenciasParaConcluir, quando, removerFoto, retomar,
 } from '@/lib/os/ordens';
+import { manterLinks, osDaSupervisao } from '@/lib/os/supervisao';
 import { componentes, corpo, espaco, fontes, raio, type Paleta } from '@/lib/tema';
-import { ROTULO_PRIORIDADE, type ItemDoChecklist, type OrdemServico, type TracoNaFoto } from '@/lib/os/types';
+import { ROTULO_PRIORIDADE, type ItemDoChecklist, type OrdemServico, type OrigemDaFoto, type TracoNaFoto } from '@/lib/os/types';
+
+// o Supervisor acompanha a OS aberta na tela
+const INTERVALO_SUPERVISAO_MS = 30_000;
 
 function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
   const styles = useEstilos(criarEstilos);
@@ -51,9 +61,10 @@ export default function DetalheDaOS() {
   const styles = useEstilos(criarEstilos);
   const { cores } = useTema();
   const router = useRouter();
-  // veio do histórico do local (QR): a OS pode ser de outro técnico e abre só para ver
-  const { id, local } = useLocalSearchParams<{ id: string; local?: string }>();
-  const somenteVer = !!local;
+  // veio do histórico do local (QR) ou da visão do Supervisor: a OS pode ser de outro técnico e abre só para ver
+  const { id, local, supervisao } = useLocalSearchParams<{ id: string; local?: string; supervisao?: string }>();
+  const somenteVer = !!local || !!supervisao;
+  const { usuario, conferirConta } = useAuth();
   const margem = useSafeAreaInsets();
   const [os, setOs] = useState<OrdemServico | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -61,14 +72,34 @@ export default function DetalheDaOS() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState('');
 
+  // a atualização automática do Supervisor falhou: a tela segue com o que já tinha, e avisa
+  const [desatualizada, setDesatualizada] = useState<string | null>(null);
+
   // volta da tela de concluir: busca de novo para mostrar a OS concluída
-  useFocusEffect(useCallback(() => {
-    let cancelado = false;
-    (local ? osDoLocal(Number(local), Number(id)) : buscarOS(Number(id)))
-      .then(achada => { if (!cancelado) setOs(achada); })
-      .catch(e => { if (!cancelado) setErro(e instanceof Error ? e.message : 'Não foi possível abrir a OS.'); });
-    return () => { cancelado = true; };
-  }, [id, local]));
+  const pedido = useRef(0);
+  const carregar = useCallback(() => {
+    const meu = ++pedido.current;
+    const busca = supervisao ? osDaSupervisao(Number(id)) : local ? osDoLocal(Number(local), Number(id)) : buscarOS(Number(id));
+    busca
+      .then(achada => {
+        if (meu !== pedido.current) return;
+        setOs(anterior => (supervisao ? manterLinks(anterior, achada) : achada));
+        setDesatualizada(null);
+        if (supervisao) setErro(null);
+      })
+      .catch(e => {
+        if (meu !== pedido.current) return;
+        const texto = e instanceof Error ? e.message : 'Não foi possível abrir a OS.';
+        // o servidor recusou o Supervisor (cargo retirado): o que estava na tela sai
+        if (supervisao && e instanceof ApiError && e.status === 403) {
+          setOs(null);
+          setDesatualizada(null);
+          void conferirConta();
+        } else if (supervisao) setDesatualizada(texto);
+        setErro(texto);
+      });
+  }, [id, local, supervisao, conferirConta]);
+  useAoVivo(carregar, supervisao ? INTERVALO_SUPERVISAO_MS : null);
 
   // a fila subiu (ou recusou) uma ação desta OS: mostra a versão nova, sem ir ao servidor
   const { itens } = useFila();
@@ -81,8 +112,10 @@ export default function DetalheDaOS() {
 
   // momento (Antes/Depois) ou item do checklist: a foto é de um ou do outro
   const [paraMarcar, setParaMarcar] = useState<{
-    uri: string; largura: number; altura: number; momento?: 'Antes' | 'Depois'; item?: ItemDoChecklist;
+    uri: string; largura: number; altura: number; origem: OrigemDaFoto; momento?: 'Antes' | 'Depois'; item?: ItemDoChecklist;
   } | null>(null);
+  // a foto aberta (id)
+  const [vendo, setVendo] = useState<number | null>(null);
 
   async function agir(nome: string, acao: () => Promise<OrdemServico>) {
     setErro(null);
@@ -98,20 +131,22 @@ export default function DetalheDaOS() {
 
   // Antes / Depois: a legenda diz o momento; item do checklist: a legenda é o texto do item.
   // Nos dois casos o servidor carimba data, hora e local na foto
-  async function tirarFoto(alvo: 'Antes' | 'Depois' | ItemDoChecklist) {
-    // no navegador não há câmera do sistema: escolhe um arquivo
-    const pedido = Platform.OS === 'web'
-      ? await ImagePicker.requestMediaLibraryPermissionsAsync()
-      : await ImagePicker.requestCameraPermissionsAsync();
-    if (!pedido.granted) { setErro('Sem permissão para a câmera. Libere nas configurações do celular.'); return; }
+  // da câmera (e a foto fica também na galeria) ou uma que já está no celular
+  async function tirarFoto(alvo: 'Antes' | 'Depois' | ItemDoChecklist, origem: OrigemDaFoto = 'camera') {
+    // no navegador não há câmera do sistema: escolhe um arquivo. A galeria do celular abre sem pedir permissão
+    const daCamera = origem === 'camera' && Platform.OS !== 'web';
+    if (daCamera && !(await ImagePicker.requestCameraPermissionsAsync()).granted) {
+      setErro('Sem permissão para a câmera. Libere nas configurações do celular.');
+      return;
+    }
     const opcoes: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, exif: false };
-    const r = Platform.OS === 'web' ? await ImagePicker.launchImageLibraryAsync(opcoes) : await ImagePicker.launchCameraAsync(opcoes);
+    const r = daCamera ? await ImagePicker.launchCameraAsync(opcoes) : await ImagePicker.launchImageLibraryAsync(opcoes);
     if (r.canceled || !r.assets[0]) return;
     const a = r.assets[0];
+    if (daCamera) await salvarNaGaleria(a.uri);
     // antes de enviar, a tela de marcar na foto (pode enviar sem marcar)
-    setParaMarcar(typeof alvo === 'string'
-      ? { uri: a.uri, largura: a.width, altura: a.height, momento: alvo }
-      : { uri: a.uri, largura: a.width, altura: a.height, item: alvo });
+    const base = { uri: a.uri, largura: a.width, altura: a.height, origem };
+    setParaMarcar(typeof alvo === 'string' ? { ...base, momento: alvo } : { ...base, item: alvo });
   }
 
   async function enviarFoto(tracos: TracoNaFoto[]) {
@@ -123,11 +158,22 @@ export default function DetalheDaOS() {
       const item = f.item;
       // o servidor guarda a foto, liga ao item e marca o item como feito
       await agir(`item-${item.id}`, async () =>
-        anexarFoto(os.id, await reduzirFoto(f.uri, f.largura), item.texto.slice(0, 120), tracos, item.id));
+        anexarFoto(os.id, await reduzirFoto(f.uri, f.largura), item.texto.slice(0, 120), tracos, item.id, f.origem));
       return;
     }
-    const n = os.fotos.filter(x => x.legenda.startsWith(f.momento ?? '')).length + 1;
-    await agir(`foto-${f.momento}`, async () => anexarFoto(os.id, await reduzirFoto(f.uri, f.largura), `${f.momento} ${n}`, tracos));
+    // o número seguinte ao maior que existe: remover uma foto não repete o nome de outra
+    const n = 1 + Math.max(0, ...os.fotos.filter(x => x.legenda.startsWith(`${f.momento} `))
+      .map(x => Number(x.legenda.slice(`${f.momento} `.length)) || 0));
+    await agir(`foto-${f.momento}`, async () =>
+      anexarFoto(os.id, await reduzirFoto(f.uri, f.largura), `${f.momento} ${n}`, tracos, undefined, f.origem));
+  }
+
+  async function estouACaminho() {
+    if (!os) return;
+    const outra = await outraACaminho(os.id);
+    if (outra && !(await confirmar('Trocar o destino?',
+      `Você está a caminho da ${outra.numero} (${outra.cliente.nome}). Trocar para esta OS?`, 'Trocar'))) return;
+    await agir('a-caminho', () => avisarACaminho(os.id));
   }
 
   if (!os) {
@@ -148,6 +194,10 @@ export default function DetalheDaOS() {
   const mensagens = os.mensagens ?? [];
   const emAberto = os.situacao === 'aberta' || os.situacao === 'andamento' || os.situacao === 'pausada';
   const foraDoPrazo = emAberto && passouDoPrazo(os);
+  const indo = estaACaminho(os);
+  // galeria, comentário e remoção: só quando o servidor já aceita
+  const mexeNaFoto = podeFotografar && !!os.fotos_v2;
+  const fotoAberta = os.fotos.find(f => f.id === vendo);
 
   return (
     <View style={{ flex: 1 }}>
@@ -155,13 +205,21 @@ export default function DetalheDaOS() {
       {paraMarcar && (
         <MarcarFoto foto={paraMarcar} aoEnviar={tracos => { void enviarFoto(tracos); }} aoCancelar={() => setParaMarcar(null)} />
       )}
+      {fotoAberta && (
+        <FotoDaOS key={fotoAberta.id} foto={fotoAberta} podeComentar={mexeNaFoto}
+          podeRemover={mexeNaFoto && fotoAberta.removivel !== false}
+          aoComentar={texto => { setVendo(null); void agir('comentario', () => comentarFoto(os.id, fotoAberta, texto)); }}
+          aoRemover={() => { setVendo(null); void agir('remover-foto', () => removerFoto(os.id, fotoAberta)); }}
+          aoFechar={() => setVendo(null)} />
+      )}
       <ScrollView contentContainerStyle={[styles.conteudo, { paddingBottom: margem.bottom + espaco[10] }]}>
         <View style={{ gap: espaco[2] }}>
-          <SeloSituacao situacao={os.situacao} />
+          <SeloSituacao situacao={os.situacao} aCaminho={indo} />
           <Text style={styles.titulo} accessibilityRole="header">{os.titulo}</Text>
         </View>
 
-        {erro && <Aviso texto={erro} />}
+        {erro && !(desatualizada && os) && <Aviso texto={erro} />}
+        {desatualizada && <Aviso tipo="info" texto={`Não deu para atualizar: ${desatualizada} Mostrando a última versão recebida.`} />}
         {somenteVer
           ? <Aviso tipo="info" texto="Só para consulta: daqui não dá para mudar nada nesta OS." />
           : <AvisoDaFila osId={os.id} />}
@@ -171,6 +229,16 @@ export default function DetalheDaOS() {
         )}
 
         {/* a ação principal de cada momento fica no topo */}
+        {/* opcional: só avisa o escritório. Aparece quando o servidor tem a função */}
+        {podeMexer && os.situacao === 'aberta' && os.a_caminho_em !== undefined && (
+          <View style={{ gap: espaco[2] }}>
+            {indo && <Text style={styles.ajuda}>Você avisou que está a caminho: {quando(os.a_caminho_em ?? null)}.</Text>}
+            <Botao tipo="secundario" rotulo={indo ? 'Desfazer "a caminho"' : 'Estou a caminho'}
+              carregando={ocupado === 'a-caminho'} desativado={!!ocupado}
+              onPress={() => (indo ? agir('a-caminho', () => desfazerACaminho(os.id)) : estouACaminho())} />
+          </View>
+        )}
+
         {podeMexer && os.situacao === 'aberta' && (
           <View style={{ gap: espaco[2] }}>
             <Botao rotulo="Cheguei no local" carregando={ocupado === 'checkin'} desativado={!!ocupado}
@@ -202,6 +270,8 @@ export default function DetalheDaOS() {
           {somenteVer && <Linha rotulo="Técnico" valor={os.tecnico?.nome ?? 'Sem técnico'} />}
           <Linha rotulo="Endereço" valor={os.endereco} />
           <Linha rotulo="Agendada" valor={quando(os.agendada_para)} />
+          {somenteVer && indo && <Linha rotulo="A caminho desde" valor={quando(os.a_caminho_em ?? null)} />}
+          {!!os.motivo_cancelamento && <Linha rotulo="Motivo do cancelamento" valor={os.motivo_cancelamento} />}
           {emAberto && !!os.prazo_em && (
             <Linha rotulo="Prazo para concluir" valor={`${quando(os.prazo_em)}${foraDoPrazo ? ' · já passou' : ''}`} />
           )}
@@ -210,7 +280,7 @@ export default function DetalheDaOS() {
           {os.conclusao && <Linha rotulo="Concluída" valor={descreverMarcacao(os.conclusao)} />}
         </Cartao>
 
-        {podeMexer && os.cliente.id > 0 && (
+        {(podeMexer || usuario?.supervisor) && os.cliente.id > 0 && (
           <Botao tipo="secundario" rotulo="Histórico deste local"
             onPress={() => router.push({ pathname: '/local/[id]', params: { id: String(os.cliente.id) } })} />
         )}
@@ -226,8 +296,8 @@ export default function DetalheDaOS() {
               const pedeFoto = !!item.exige_foto && !item.feito && !item.foto_id;
               const desativado = !emAtendimento || !podeMexer || !!ocupado;
               return (
+                <View key={item.id}>
                 <Pressable
-                  key={item.id}
                   disabled={desativado}
                   onPress={() => (pedeFoto ? tirarFoto(item) : agir(`item-${item.id}`, () => marcarItem(os.id, item.id, !item.feito)))}
                   accessibilityRole="checkbox"
@@ -245,6 +315,13 @@ export default function DetalheDaOS() {
                     </Text>
                   )}
                 </Pressable>
+                {pedeFoto && mexeNaFoto && emAtendimento && (
+                  <Pressable onPress={() => tirarFoto(item, 'galeria')} disabled={!!ocupado} accessibilityRole="button" style={styles.daGaleria}
+                    accessibilityLabel={`Anexar da galeria a foto de: ${item.texto}`}>
+                    <Text style={[styles.itemCamera, { color: cores.azul }]}>Usar foto da galeria</Text>
+                  </Pressable>
+                )}
+                </View>
               );
             })}
             {podeMexer && os.situacao === 'aberta' && <Text style={styles.ajuda}>Faça o check-in para marcar os itens.</Text>}
@@ -256,19 +333,31 @@ export default function DetalheDaOS() {
             {os.fotos.length > 0 && (
               <View style={styles.fotos}>
                 {os.fotos.map(f => (
-                  <View key={f.id} style={{ gap: espaco[1] }}>
-                    <Image source={{ uri: urlAbsoluta(f.url) }} style={styles.foto} accessibilityLabel={f.legenda} />
+                  <Pressable key={f.id} style={{ gap: espaco[1] }} onPress={() => setVendo(f.id)} accessibilityRole="button"
+                    accessibilityLabel={`Abrir a foto ${f.legenda}${f.comentario ? `, com o comentário: ${f.comentario}` : ''}`}>
+                    <Image source={{ uri: urlAbsoluta(f.url) }} style={styles.foto} />
                     <Text style={styles.legenda} numberOfLines={1}>{f.legenda}</Text>
-                  </View>
+                    {!!f.comentario && <Text style={styles.legenda} numberOfLines={2}>“{f.comentario}”</Text>}
+                  </Pressable>
                 ))}
               </View>
             )}
+            {mexeNaFoto && os.fotos.length > 0 && <Text style={styles.ajuda}>Toque na foto para comentar ou remover.</Text>}
             {podeFotografar && (
               <View style={styles.dupla}>
                 {(['Antes', 'Depois'] as const).map(m => (
                   <View key={m} style={{ flex: 1 }}>
                     <Botao tipo="secundario" rotulo={`Foto ${m.toLowerCase()}`}
                       carregando={ocupado === `foto-${m}`} desativado={!!ocupado} onPress={() => tirarFoto(m)} />
+                  </View>
+                ))}
+              </View>
+            )}
+            {mexeNaFoto && (
+              <View style={[styles.dupla, { marginTop: espaco[2] }]}>
+                {(['Antes', 'Depois'] as const).map(m => (
+                  <View key={m} style={{ flex: 1 }}>
+                    <Botao tipo="secundario" rotulo={`${m}: galeria`} desativado={!!ocupado} onPress={() => tirarFoto(m, 'galeria')} />
                   </View>
                 ))}
               </View>
@@ -351,6 +440,7 @@ const criarEstilos = (c: Paleta) => StyleSheet.create({
   itemTexto: { flex: 1, ...fontes.texto, fontSize: corpo.base, color: c.texto },
   itemFeito: { color: c.textoSuave, textDecorationLine: 'line-through' },
   itemCamera: { ...fontes.textoForte, fontSize: corpo.pequeno, color: c.textoSuave },
+  daGaleria: { alignSelf: 'flex-start', minHeight: componentes.alvoDeToque, justifyContent: 'center', marginLeft: 24 + espaco[3] },
   fotos: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco[2] },
   foto: { width: 96, height: 96, borderRadius: raio.pequeno, backgroundColor: c.superficieForte },
   legenda: { width: 96, ...fontes.texto, fontSize: corpo.micro, color: c.textoSuave },

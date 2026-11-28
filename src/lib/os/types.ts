@@ -60,7 +60,16 @@ export interface Foto {
   url: string;
   legenda: string;
   tirada_em: string;
+  /** o que o técnico escreveu sobre a foto ("" = nada); sai no relatório do cliente */
+  comentario?: string;
+  /** a identidade que o celular deu à foto ao anexar */
+  id_cliente?: string | null;
+  /** false = foto de outra pessoa (cliente, escritório, outro técnico): este técnico não remove */
+  removivel?: boolean;
 }
+
+/** De onde veio a foto anexada: o servidor escreve isso no carimbo quando é da galeria. */
+export type OrigemDaFoto = 'camera' | 'galeria';
 
 export interface Assinatura {
   /** quem assinou pelo cliente (síndico, zelador, porteiro) */
@@ -125,6 +134,12 @@ export interface OrdemServico {
   rota_posicao?: number | null;
   mensagens?: Mensagem[];
   audios?: AudioDaOS[];
+  /** quando o técnico avisou que está indo (só vale com a OS aberta e no dia); a chave ausente = servidor sem a função */
+  a_caminho_em?: string | null;
+  /** o servidor aceita foto da galeria, comentário e remoção; ausente = servidor sem a função */
+  fotos_v2?: boolean;
+  /** só vem na visão do Supervisor */
+  motivo_cancelamento?: string | null;
 }
 
 export const ROTULO_SITUACAO: Record<Situacao, string> = {

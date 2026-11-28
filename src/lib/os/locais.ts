@@ -19,6 +19,7 @@ export interface ItemDoHistorico {
   quando: string | null;
   tecnico: string | null;
   relato: string;
+  a_caminho_em?: string | null;
 }
 
 export interface HistoricoDoLocal {

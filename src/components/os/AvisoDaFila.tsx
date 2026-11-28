@@ -11,12 +11,16 @@ const RECUSADA: Record<Acao['tipo'], string> = {
   checkin: 'O check-in não foi aceito', pausar: 'A pausa não foi aceita', retomar: 'A retomada não foi aceita',
   item: 'O item do checklist não foi aceito', foto: 'A foto não foi aceita', concluir: 'A conclusão não foi aceita',
   mensagem: 'A mensagem não foi aceita', audio: 'O áudio não foi aceito',
+  a_caminho: 'O aviso "a caminho" não foi aceito', desfazer_a_caminho: 'O desfazer do "a caminho" não foi aceito',
+  remover_foto: 'A remoção da foto não foi aceita', comentar_foto: 'O comentário da foto não foi aceito',
 };
 
 // a ação que não saiu do celular ("O check-in não saiu do celular: …")
 const ACAO: Record<Acao['tipo'], string> = {
   checkin: 'O check-in', pausar: 'A pausa', retomar: 'A retomada', item: 'O item do checklist', foto: 'A foto',
   concluir: 'A conclusão', mensagem: 'A mensagem', audio: 'O áudio',
+  a_caminho: 'O aviso "a caminho"', desfazer_a_caminho: 'O desfazer do "a caminho"',
+  remover_foto: 'A remoção da foto', comentar_foto: 'O comentário da foto',
 };
 
 function plural(n: number) {
